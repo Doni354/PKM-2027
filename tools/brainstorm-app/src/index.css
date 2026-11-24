@@ -1,0 +1,435 @@
+@import "tailwindcss";
+@import "@xyflow/react/dist/style.css";
+
+/* =========================================================
+   Linear × FigJam Semantic Design Tokens (Light & Dark)
+   Follows modern-web-guidance: dark-mode & dark-mode-toggle
+   ========================================================= */
+:root {
+  color-scheme: light dark;
+
+  /* Fallback light tokens (for browsers without light-dark()) */
+  --bg-canvas: #f8f9fb;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f1f3f6;
+  --bg-elevated: #ffffff;
+  --bg-glass: rgb(255 255 255 / 0.88);
+  --border: #e4e7ec;
+  --border-strong: #cdd3dc;
+  --text-primary: #111318;
+  --text-secondary: #525866;
+  --text-muted: #7c8494;
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-soft: #eef2ff;
+  --accent-fg: #ffffff;
+  --btn-solid-bg: #111318;
+  --btn-solid-hover: #272b36;
+  --btn-solid-fg: #ffffff;
+  --dot-grid: #d4d8e2;
+  --edge-stroke: #98a2b3;
+  --selection-bg: #e0e7ff;
+  --selection-fg: #1e1b4b;
+  --scrollbar-thumb: #cbd5e1;
+  --scrollbar-track: #f1f5f9;
+  --drop-marker-color: #4f46e5;
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.05), 0 1px 3px rgb(16 24 40 / 0.04);
+  --shadow-card-hover: 0 6px 18px rgb(16 24 40 / 0.08), 0 1px 3px rgb(16 24 40 / 0.04);
+  --shadow-float: 0 12px 32px rgb(16 24 40 / 0.12), 0 2px 6px rgb(16 24 40 / 0.06);
+
+  /* Sticky note palettes (Light) */
+  --sticky-butter-bg: #fef9c3;
+  --sticky-butter-border: #f5d76e;
+  --sticky-mint-bg: #dcfce7;
+  --sticky-mint-border: #86efac;
+  --sticky-sky-bg: #e0f2fe;
+  --sticky-sky-border: #7dd3fc;
+  --sticky-rose-bg: #ffe4e6;
+  --sticky-rose-border: #fda4af;
+  --sticky-lavender-bg: #f3e8ff;
+  --sticky-lavender-border: #d8b4fe;
+  --sticky-paper-bg: #ffffff;
+  --sticky-paper-border: #e4e7ec;
+  --sticky-ink: #18181b;
+  --sticky-muted: #52525b;
+
+  /* Mandatory fallback for browsers without light-dark() */
+  @media (prefers-color-scheme: dark) {
+    --bg-canvas: #0c0d11;
+    --bg-surface: #14161d;
+    --bg-subtle: #1a1d26;
+    --bg-elevated: #1c202a;
+    --bg-glass: rgb(20 22 29 / 0.86);
+    --border: #252936;
+    --border-strong: #373d50;
+    --text-primary: #f2f4f8;
+    --text-secondary: #a1a8b8;
+    --text-muted: #727a8c;
+    --accent: #818cf8;
+    --accent-hover: #6366f1;
+    --accent-soft: rgb(99 102 241 / 0.16);
+    --accent-fg: #0c0d11;
+    --btn-solid-bg: #f2f4f8;
+    --btn-solid-hover: #dce1ea;
+    --btn-solid-fg: #0c0d11;
+    --dot-grid: #272b38;
+    --edge-stroke: #565f75;
+    --selection-bg: rgb(99 102 241 / 0.35);
+    --selection-fg: #ffffff;
+    --scrollbar-thumb: #373d50;
+    --scrollbar-track: #14161d;
+    --drop-marker-color: #818cf8;
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35);
+    --shadow-card-hover: 0 10px 26px rgb(0 0 0 / 0.48);
+    --shadow-float: 0 14px 36px rgb(0 0 0 / 0.55);
+
+    --sticky-butter-bg: #292313;
+    --sticky-butter-border: #52441e;
+    --sticky-mint-bg: #12251c;
+    --sticky-mint-border: #214d38;
+    --sticky-sky-bg: #122133;
+    --sticky-sky-border: #1e4268;
+    --sticky-rose-bg: #2c151e;
+    --sticky-rose-border: #5c2539;
+    --sticky-lavender-bg: #211733;
+    --sticky-lavender-border: #472f72;
+    --sticky-paper-bg: #171922;
+    --sticky-paper-border: #2c3142;
+    --sticky-ink: #f3f4f6;
+    --sticky-muted: #a1a8b8;
+  }
+
+  /* Modern light-dark() automatically tracks <meta name="color-scheme"> override */
+  @supports (color: light-dark(white, black)) {
+    --bg-canvas: light-dark(#f8f9fb, #0c0d11);
+    --bg-surface: light-dark(#ffffff, #14161d);
+    --bg-subtle: light-dark(#f1f3f6, #1a1d26);
+    --bg-elevated: light-dark(#ffffff, #1c202a);
+    --bg-glass: light-dark(rgb(255 255 255 / 0.88), rgb(20 22 29 / 0.86));
+    --border: light-dark(#e4e7ec, #252936);
+    --border-strong: light-dark(#cdd3dc, #373d50);
+    --text-primary: light-dark(#111318, #f2f4f8);
+    --text-secondary: light-dark(#525866, #a1a8b8);
+    --text-muted: light-dark(#7c8494, #727a8c);
+    --accent: light-dark(#4f46e5, #818cf8);
+    --accent-hover: light-dark(#4338ca, #6366f1);
+    --accent-soft: light-dark(#eef2ff, rgb(99 102 241 / 0.16));
+    --accent-fg: light-dark(#ffffff, #0c0d11);
+    --btn-solid-bg: light-dark(#111318, #f2f4f8);
+    --btn-solid-hover: light-dark(#272b36, #dce1ea);
+    --btn-solid-fg: light-dark(#ffffff, #0c0d11);
+    --dot-grid: light-dark(#d4d8e2, #272b38);
+    --edge-stroke: light-dark(#98a2b3, #565f75);
+    --selection-bg: light-dark(#e0e7ff, rgb(99 102 241 / 0.35));
+    --selection-fg: light-dark(#1e1b4b, #ffffff);
+    --scrollbar-thumb: light-dark(#cbd5e1, #373d50);
+    --scrollbar-track: light-dark(#f1f5f9, #14161d);
+    --drop-marker-color: light-dark(#4f46e5, #818cf8);
+
+    --sticky-butter-bg: light-dark(#fef9c3, #292313);
+    --sticky-butter-border: light-dark(#f5d76e, #52441e);
+    --sticky-mint-bg: light-dark(#dcfce7, #12251c);
+    --sticky-mint-border: light-dark(#86efac, #214d38);
+    --sticky-sky-bg: light-dark(#e0f2fe, #122133);
+    --sticky-sky-border: light-dark(#7dd3fc, #1e4268);
+    --sticky-rose-bg: light-dark(#ffe4e6, #2c151e);
+    --sticky-rose-border: light-dark(#fda4af, #5c2539);
+    --sticky-lavender-bg: light-dark(#f3e8ff, #211733);
+    --sticky-lavender-border: light-dark(#d8b4fe, #472f72);
+    --sticky-paper-bg: light-dark(#ffffff, #171922);
+    --sticky-paper-border: light-dark(#e4e7ec, #2c3142);
+    --sticky-ink: light-dark(#18181b, #f3f4f6);
+    --sticky-muted: light-dark(#52525b, #a1a8b8);
+  }
+
+  /* Reflect <meta name="color-scheme"> override back into CSS color-scheme */
+  &:has(> head > meta[name="color-scheme"][content="dark"]) {
+    color-scheme: dark;
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35);
+    --shadow-card-hover: 0 10px 26px rgb(0 0 0 / 0.48);
+    --shadow-float: 0 14px 36px rgb(0 0 0 / 0.55);
+  }
+
+  &:has(> head > meta[name="color-scheme"][content="light"]) {
+    color-scheme: light;
+    --shadow-card: 0 1px 2px rgb(16 24 40 / 0.05), 0 1px 3px rgb(16 24 40 / 0.04);
+    --shadow-card-hover: 0 6px 18px rgb(16 24 40 / 0.08), 0 1px 3px rgb(16 24 40 / 0.04);
+    --shadow-float: 0 12px 32px rgb(16 24 40 / 0.12), 0 2px 6px rgb(16 24 40 / 0.06);
+  }
+
+  accent-color: var(--accent);
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+}
+
+.font-mono-code {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+::selection {
+  background-color: var(--selection-bg);
+  color: var(--selection-fg);
+}
+
+/* Theme toggle icon branching purely in CSS (mirrors <meta> + OS preference) */
+.theme-icon-to-dark {
+  display: inline-flex;
+}
+.theme-icon-to-light {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(:has(> head > meta[name="color-scheme"][content="light"])) .theme-icon-to-dark {
+    display: none;
+  }
+  :root:not(:has(> head > meta[name="color-scheme"][content="light"])) .theme-icon-to-light {
+    display: inline-flex;
+  }
+}
+
+:root:has(> head > meta[name="color-scheme"][content="dark"]) .theme-icon-to-dark {
+  display: none;
+}
+:root:has(> head > meta[name="color-scheme"][content="dark"]) .theme-icon-to-light {
+  display: inline-flex;
+}
+
+/* Native <dialog> modern best practices */
+dialog:modal {
+  overscroll-behavior: contain;
+  margin: auto;
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  border-color: var(--border);
+  box-shadow: var(--shadow-float);
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 0.48);
+  backdrop-filter: blur(5px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+/* Accessible single-row tabs */
+.pkm-tablist {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: inline proximity;
+}
+
+.pkm-tab {
+  position: relative;
+  flex: none;
+  scroll-snap-align: start;
+  color: var(--text-muted);
+}
+
+.pkm-tab:hover {
+  color: var(--text-primary);
+}
+
+.pkm-tab[aria-selected="true"] {
+  color: var(--text-primary);
+}
+
+.pkm-tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset: auto 8px 0;
+  border-block-end: 2.5px solid var(--accent);
+}
+
+/* Floating Canvas Toolbar (modern-web-guidance: toolbar) */
+.studio-toolbar {
+  background-color: var(--bg-glass);
+  border-color: var(--border);
+  box-shadow: var(--shadow-float);
+}
+
+.studio-toolbar [role="separator"] {
+  border-inline-start: 1px solid var(--border);
+  block-size: 1.25rem;
+  align-self: center;
+}
+
+.studio-toolbar button {
+  min-inline-size: 2rem;
+  min-block-size: 2rem;
+  color: var(--text-secondary);
+}
+
+@media (pointer: coarse) {
+  .studio-toolbar button {
+    min-inline-size: 2.5rem;
+    min-block-size: 2.5rem;
+  }
+}
+
+.studio-toolbar button[aria-pressed="true"] {
+  background-color: var(--accent-soft);
+  color: var(--accent);
+  outline: 1.5px solid var(--accent);
+}
+
+.studio-toolbar button[data-swatch][aria-pressed="true"] {
+  background-color: transparent;
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .studio-toolbar button:not([aria-pressed="true"]):hover {
+    background-color: var(--bg-subtle);
+    color: var(--text-primary);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .studio-toolbar button {
+    transition: background-color 140ms ease, color 140ms ease;
+  }
+
+  .live-cursor {
+    transition: transform 60ms linear, opacity 200ms ease;
+  }
+
+  /* Smooth 60fps glide ONLY for remotely-moved nodes; zero delay for locally dragged node! */
+  .react-flow__node:not(.dragging) {
+    transition: transform 75ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+/* Kanban column layout containment (modern-web-guidance: interactions-in-complex-layouts) */
+.kanban-column {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px auto 680px;
+}
+
+@supports not (content-visibility: auto) {
+  .kanban-column {
+    contain: layout style paint;
+  }
+}
+
+/* Kanban Drag & Drop Handle & Active Grabbing State */
+.kanban-drag-handle {
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.kanban-drag-handle:active {
+  cursor: grabbing;
+}
+
+html.is-kanban-dragging,
+html.is-kanban-dragging * {
+  cursor: grabbing !important;
+}
+
+/* Validate input after interaction (:user-invalid / :user-valid) */
+.pkm-field-input:not([type="range"]):is(:user-invalid, .user-invalid-fallback) {
+  border-color: #dc2626;
+}
+
+.pkm-field-input:not([type="range"]):is(:user-invalid, .user-invalid-fallback) + .pkm-field-error {
+  display: flex;
+}
+
+.pkm-field-error {
+  display: none;
+}
+
+/* Textareas */
+.pkm-textarea {
+  field-sizing: content;
+  resize: vertical;
+  min-height: 4.5rem;
+}
+
+.sticky-textarea {
+  field-sizing: content;
+  resize: vertical;
+  min-height: 4.5rem;
+}
+
+.visually-hidden:where(:not(:focus-within, :active)) {
+  position: absolute !important;
+  clip-path: inset(50%) !important;
+  overflow: hidden !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  white-space: nowrap !important;
+}
+
+/* React Flow Dark/Light Adaptive Chrome */
+.react-flow__node {
+  cursor: grab;
+}
+
+.react-flow__node:active {
+  cursor: grabbing;
+}
+
+.react-flow__handle {
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--bg-surface);
+  background-color: var(--accent);
+}
+
+.react-flow__controls {
+  box-shadow: var(--shadow-card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  background-color: var(--bg-surface) !important;
+}
+
+.react-flow__controls-button {
+  background-color: var(--bg-surface) !important;
+  color: var(--text-secondary) !important;
+  border-bottom: 1px solid var(--border) !important;
+  fill: currentColor !important;
+}
+
+.react-flow__controls-button:hover {
+  background-color: var(--bg-subtle) !important;
+  color: var(--text-primary) !important;
+}
+
+.react-flow__minimap {
+  background-color: var(--bg-surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  box-shadow: var(--shadow-card) !important;
+}
+
+.react-flow__edge-textbg {
+  fill: var(--bg-canvas) !important;
+}
+
+.react-flow__edge-text {
+  fill: var(--text-secondary) !important;
+}
