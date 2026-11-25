@@ -1,10 +1,12 @@
-export type TabId = 'free' | 'board' | 'mindmap' | 'canvas';
+export type TabId = 'free' | 'board' | 'mindmap' | 'canvas' | 'preview';
 
 export type ColumnId = 'problem' | 'urgency' | 'targetUser' | 'needs';
 
 export type StickyColor = 'butter' | 'mint' | 'sky' | 'rose' | 'lavender' | 'paper';
 
-export type FreeNoteKind = 'sticky' | 'label';
+export type FreeNoteKind = 'sticky' | 'label' | 'image';
+
+export type IdeaDecision = 'prioritas' | 'kandidat' | 'cadangan' | 'arsip';
 
 export type SolutionDomainTag =
   | 'Software'
@@ -41,17 +43,23 @@ export interface FreeStickyNote {
   author: string;
   authorColor: string;
   tag?: string;
+  imageUrl?: string;
+  imageWidth?: number;
+  imageHeight?: number;
+  cardWidth?: number;
   x: number;
   y: number;
   votes?: Record<string, boolean>;
   comments?: Record<string, NoteComment>;
   promotedToBoard?: boolean;
+  promotedIdeaId?: string;
   createdAt: number;
   updatedAt: number;
 }
 
 export interface BoardCard {
   id: string;
+  ideaId?: string;
   columnId: ColumnId;
   order?: number;
   title: string;
@@ -116,6 +124,29 @@ export interface InnovationCanvasData {
   keberlanjutanIde: string;
   kesesuaianDospem: string;
   fieldMeta?: Record<string, CanvasFieldMeta>;
+}
+
+/**
+ * First-class Idea Entity uniting all 5 stages:
+ * Ruang Ide (sourceNoteIds) -> Bedah (BoardCards with ideaId) -> Mindmap -> Ide Matang -> Hasil & Preview
+ */
+export interface IdeaRecord {
+  id: string;
+  name: string;
+  color: string;
+  createdBy: string;
+  decision: IdeaDecision;
+  isStarter?: boolean;
+  starterOptionId?: 'opsi-1' | 'opsi-2' | 'opsi-3';
+  sourceNoteIds?: Record<string, boolean>;
+  votes?: Record<string, boolean>;
+  mindmap: {
+    nodes: Record<string, MindmapNodeRecord>;
+    edges: Record<string, MindmapEdgeRecord>;
+  };
+  canvas: InnovationCanvasData;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface OnlineUser {

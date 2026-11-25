@@ -3,6 +3,7 @@ import type {
   ColumnId,
   FreeStickyNote,
   IdeaMaturityStage,
+  IdeaRecord,
   InnovationCanvasData,
   MindmapEdgeRecord,
   MindmapNodeRecord,
@@ -555,6 +556,8 @@ export function buildStarterFreeNotes(): Record<string, FreeStickyNote> {
       author: 'Inspirasi Awal',
       authorColor: '#4F46E5',
       tag: opt.shortLabel,
+      promotedToBoard: true,
+      promotedIdeaId: opt.id,
       x: 60 + idx * 305,
       y: 190,
       votes: {},
@@ -578,7 +581,9 @@ export function buildStarterCards(): Record<string, BoardCard> {
       const entry = opt.cards[col];
       map[id] = {
         id,
+        ideaId: opt.id,
         columnId: col,
+        order: now - (30 - optIndex * 4 - colIndex) * 1000,
         title: entry.title,
         content: entry.content,
         author: 'Inspirasi Awal',
@@ -592,6 +597,38 @@ export function buildStarterCards(): Record<string, BoardCard> {
         updatedAt: now,
       };
     });
+  });
+
+  return map;
+}
+
+const STARTER_IDEA_COLORS = ['#F59E0B', '#10B981', '#0EA5E9'];
+
+export function buildStarterIdeas(): Record<string, IdeaRecord> {
+  const now = Date.now();
+  const map: Record<string, IdeaRecord> = {};
+
+  STARTER_OPTIONS.forEach((opt, idx) => {
+    map[opt.id] = {
+      id: opt.id,
+      name: opt.shortLabel,
+      color: STARTER_IDEA_COLORS[idx % STARTER_IDEA_COLORS.length],
+      createdBy: 'Inspirasi Awal',
+      decision: idx === 2 ? 'prioritas' : 'kandidat',
+      isStarter: true,
+      starterOptionId: opt.id,
+      sourceNoteIds: {
+        [`free-starter-${opt.id}`]: true,
+      },
+      votes: {},
+      mindmap: buildMindmapFromOption(opt, 'Inspirasi Awal'),
+      canvas: {
+        ...opt.canvasPreset,
+        fieldMeta: {},
+      },
+      createdAt: now - (3 - idx) * 1000,
+      updatedAt: now,
+    };
   });
 
   return map;

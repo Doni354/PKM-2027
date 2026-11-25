@@ -4,30 +4,33 @@ Aplikasi web kolaboratif real-time yang minimalis ala **FigJam** untuk eksploras
 
 ---
 
-## Alur 4 Tahap Pematangan Ide
+## Alur 5 Tahap Perumusan Ide Terintegrasi (Double Diamond + Problem-First)
 
-1. **1. Ruang Ide (Kanvas Bebas ala FigJam)**
-   - Kanvas *dot-grid* interaktif dengan **live multiplayer cursors** terisolasi (tanpa re-render kanvas), streaming posisi drag real-time (40ms), dan **auto-layout Masonry** berbasis tinggi kartu aktual.
-   - Klik ganda kanvas atau tekan `+ Sticky Note` untuk langsung mengetik ide bebas warna-warni (mendukung **Dark Mode & Light Mode**).
-   - Beri **Upvote**, tulis **Notes/Komentar diskusi** di tiap sticky note, lalu klik **Bedah →** untuk membawa ide terpilih ke tahap berikutnya.
-2. **2. Bedah (Kanban Drag-and-Drop ala Trello)**
-   - 4 kolom (**Masalah Nyata, Urgensi & Bukti, Target Pengguna, Kebutuhan Inti**) dengan fitur **drag-and-drop antar kolom & ubah urutan vertikal** (*pointer-capture* + akselerasi GPU + dukungan tombol panah keyboard) tersinkron real-time ke Firebase.
-   - Dilengkapi filter kelompok ide, urutan manual Trello / Top Vote / Terbaru, catatan diskusi per kartu, dan tombol 1-klik **Mindmap**.
-3. **3. Mindmap (Peta Solusi & Keterukuran)**
-   - Kanvas `@xyflow/react` dengan streaming drag real-time, kartu bersih ala *Linear × Whimsical*, kurva Bezier, dan tombol **Rapikan** berbasis *real-height hierarchical tree layout* (anti-overlap).
-   - Memecah **Akar Masalah → Opsi Solusi** (`Software`, `Hardware`, `IoT`, `AI / Data`, `Bisnis`, `Sosial`, `Kreatif`) **→ Indikator Keterukuran** (`Realitas`, `Teknis`, `Teori`).
-4. **4. Ide Matang (Blueprint & Keberlanjutan Multi-Track)**
-   - Pelacak status kematangan (**Bibit Ide → Sedang Dibedah → Tervalidasi → Ide Matang**).
-   - Pilih arah target bebas (**semua skema PKM, GEMASTIK/LIDM, Hackathon, Startup, atau Custom**) dan tema bebas.
-   - Dilengkapi blok **Keberlanjutan Ide & Potensi Lomba/Hilirisasi** agar ide tidak berhenti di satu lomba saja.
-- **Tombol Inspirasi** di header menyajikan 3 opsi pemantik dari `02-ideasi/01-evaluasi-draft-lama.md` kapan pun dibutuhkan tanpa memenuhi ruang kerja.
-- **Export .md** mengunduh seluruh isi 4 tahap (sticky notes + komentar, board bedah, mindmap + diagram Mermaid, dan blueprint ide matang) menjadi 1 file Markdown siap simpan ke `02-ideasi/`.
+Setiap ide yang lahir dari brainstorming memiliki entitas mandiri (**Multi-Ide** — bisa ganti-ganti ide di Tab 2, 3, dan 4 tanpa saling menimpa):
+
+1. **1. Ruang Ide (Discover — Kanvas Bebas ala FigJam)**
+   - Kanvas *dot-grid* interaktif dengan **live multiplayer cursors** aktif default, streaming posisi drag real-time (40ms), dan **auto-layout Masonry**.
+   - **QoL ala FigJam:** Mode Pilih/Blok (`V`) untuk *marquee selection*, Geser kanvas (`H` / tahan `Space`), **Undo/Redo (`Ctrl+Z`/`Ctrl+Y`)**, **Copy/Cut/Paste/Duplicate (`Ctrl+C/X/V/D`)**, `Ctrl+A`, dan `Del`.
+   - **Gambar Referensi Visual (Cloudinary):** Langsung `Ctrl+V` screenshot, drag-and-drop file gambar, atau klik tombol **Gambar** — tampil bersih khusus sebagai gambar referensi (ubah ukuran + lightbox + caption).
+   - Klik **Bedah →** pada sticky note untuk membuat **Ide Baru** atau menggabungkannya ke **Ide yang sudah ada** di salah satu 4 pilar.
+2. **2. Bedah (Define — 4 Pilar Kanban Trello & Sintesis Akar Masalah per Ide)**
+   - Pilih ide aktif di **Idea Switcher Bar**. Drag-and-drop kartu di 4 kolom (**Masalah Nyata, Urgensi & Bukti, Target Pengguna, Kebutuhan Inti**).
+   - Kartu **Sintesis Akar Masalah (PoV)** otomatis menggabungkan ke-4 pilar dan mengirimkannya menjadi **Root Mindmap** ide tersebut.
+3. **3. Mindmap (Develop — Peta Solusi & 3 Keterukuran per Ide)**
+   - Setiap ide memiliki kanvas Mindmap sendiri (bisa berpindah antar ide kapan saja).
+   - Root Node menampilkan indikator 4 pilar Bedah + tombol **Sinkron 4 Pilar**, bercabang ke **Opsi Solusi** (`Software`, `Hardware`, `IoT`, `AI / Data`, `Bisnis`, `Sosial`, `Kreatif`) **→ 3 Indikator Keterukuran** (`Realitas`, `Teknis`, `Teori`), lalu 1-klik **Matangkan**.
+4. **4. Ide Matang (Deliver — Blueprint & Keberlanjutan per Ide)**
+   - Setiap ide memiliki blueprint sendiri lengkap dengan panel **Sumber Terhubung** & tombol 1-klik **Tarik dari Bedah & Mindmap** (baik seluruhnya maupun per bagian).
+   - Mendukung semua target track (**PKM-KI/KC/K/PM/PI/RE/VGK, GEMASTIK, Hackathon, Startup, atau Custom**), tema bebas, status kematangan, rencana realisasi 1:1, UEQ, dan keberlanjutan.
+5. **5. Hasil (Portfolio, Perbandingan & Preview One-Pager Semua Ide)**
+   - Menampilkan **seluruh ide** hasil sesi brainstorming dalam tampilan **Kartu Portfolio** maupun **Tabel Perbandingan** responsif.
+   - Tandai keputusan tim (**Prioritas Utama / Kandidat / Cadangan / Arsip**), lakukan voting akhir, buka **Preview Lengkap (One-Pager Pitch)** yang melacak alur penuh dari sticky note awal hingga blueprint final, salin ringkasan, atau export Markdown per ide maupun semua ide sekaligus.
 
 ---
 
 ## 1. Setup Lokal & `.env`
 
-File `.env` sudah disiapkan untuk proyek Firebase `pkm2027-4bc57` (region `asia-southeast1`). Jika setup di mesin lain, salin `.env.example` menjadi `.env`.
+File `.env` sudah disiapkan untuk proyek Firebase `pkm2027-4bc57` (region `asia-southeast1`) dan Cloudinary unsigned preset `idea_studio_unsigned` (`pornijiv`) agar API secret tidak pernah masuk ke bundle browser. Jika setup di mesin lain, salin `.env.example` menjadi `.env`.
 
 ```bash
 cd tools/brainstorm-app

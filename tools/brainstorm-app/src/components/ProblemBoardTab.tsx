@@ -7,10 +7,14 @@ import {
   type FormEvent,
 } from 'react';
 import {
+  ArrowRight,
   ArrowUpDown,
+  CheckCircle2,
+  Circle,
   Edit3,
   GitBranch,
   GripVertical,
+  Layers,
   MessageSquare,
   Plus,
   Search,
@@ -18,20 +22,29 @@ import {
   ThumbsUp,
   Trash2,
 } from 'lucide-react';
-import { BOARD_COLUMNS, PKM_THEMES, STARTER_OPTIONS } from '../data/pkmStarterData';
+import { BOARD_COLUMNS, PKM_THEMES } from '../data/pkmStarterData';
+import { getCardsForIdea, synthesizeRootFromBedah } from '../lib/ideaSynthesis';
 import { sanitizeKey } from '../lib/roomSync';
-import type { BoardCard, ColumnId } from '../types';
+import type { BoardCard, ColumnId, FreeStickyNote, IdeaRecord } from '../types';
+import { IdeaSwitcherBar } from './IdeaSwitcherBar';
 import { ModalDialog } from './ModalDialog';
 import { PageCursorsOverlay } from './LiveCursorsLayer';
 
 interface ProblemBoardTabProps {
   roomId: string;
   sessionId: string;
+  ideas: IdeaRecord[];
+  activeIdea: IdeaRecord | null;
+  freeNotes: Record<string, FreeStickyNote>;
   cards: BoardCard[];
   userName: string;
-  showCursors: boolean;
+  onSelectIdea: (ideaId: string) => void;
+  onCreateIdea: (name: string) => Promise<void>;
+  onRenameIdea: (ideaId: string, nextName: string) => Promise<void>;
+  onDeleteIdea: (ideaId: string) => Promise<void>;
   onPagePointerMove: (xPct: number, yPct: number) => void;
   onAddCard: (payload: {
+    ideaId: string;
     columnId: ColumnId;
     title: string;
     content: string;
@@ -40,13 +53,15 @@ interface ProblemBoardTabProps {
   }) => Promise<void>;
   onUpdateCard: (
     cardId: string,
-    patch: Partial<Pick<BoardCard, 'title' | 'content' | 'columnId' | 'ideaGroup' | 'pkmTheme'>>
+    patch: Partial<
+      Pick<BoardCard, 'title' | 'content' | 'columnId' | 'ideaId' | 'ideaGroup' | 'pkmTheme'>
+    >
   ) => Promise<void>;
   onMoveCard: (cardId: string, targetColumnId: ColumnId, newOrder: number) => Promise<void>;
   onDeleteCard: (cardId: string) => Promise<void>;
   onToggleVote: (cardId: string, currentlyVoted: boolean) => Promise<void>;
   onAddComment: (cardId: string, text: string) => Promise<void>;
-  onSetRootMindmap: (card: BoardCard) => Promise<void>;
+  onSyncBedahToMindmapAndGo: (idea: IdeaRecord) => Promise<void>;
 }
 
 type SortMode = 'manual' | 'votes' | 'newest';
@@ -95,9 +110,15 @@ function computeFractionalOrder(siblings: BoardCard[], insertIndex: number): num
 export function ProblemBoardTab({
   roomId,
   sessionId,
+  ideas,
+  activeIdea,
+  freeNotes,
   cards,
   userName,
-  showCursors,
+  onSelectIdea,
+  onCreateIdea,
+  onRenameIdea,
+  onDeleteIdea,
   onPagePointerMove,
   onAddCard,
   onUpdateCard,
@@ -105,7 +126,7 @@ export function ProblemBoardTab({
   onDeleteCard,
   onToggleVote,
   onAddComment,
-  onSetRootMindmap,
+  onSyncBedahToMindmapAndGo,
 }: ProblemBoardTabProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ghostRef = useRef<HTMLDivElement>(null);
@@ -113,19 +134,18 @@ export function ProblemBoardTab({
   const rafRef = useRef<number | null>(null);
   const pendingCoordsRef = useRef<{ x: number; y: number } | null>(null);
 
-  const [selectedGroup, setSelectedGroup] = useState<string>('ALL');
+  const [showAllIdeas, setShowAllIdeas] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortMode>('manual');
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [liveAnnouncement, setLiveAnnouncement] = useState('');
 
-  // Optimistic local Kanban drop overlay (0ms perceived latency!)
+  // Optimistic local Kanban drop overlay (0ms perceived latency)
   const [optimisticMoves, setOptimisticMoves] = useState<
     Record<string, { columnId: ColumnId; order: number }>
   >({});
 
-  // Visual drag UI state (only changes on activation / target slot change, NOT per pixel)
   const [draggingCard, setDraggingCard] = useState<{
     card: BoardCard;
     width: number;
@@ -141,7 +161,7 @@ export function ProblemBoardTab({
   const [formColumn, setFormColumn] = useState<ColumnId>('problem');
   const [formTitle, setFormTitle] = useState('');
   const [formContent, setFormContent] = useState('');
-  const [formIdeaGroup, setFormIdeaGroup] = useState('');
+  const [formIdeaId, setFormIdeaId] = useState('');
   const [formTheme, setFormTheme] = useState('');
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [titleTouched, setTitleTouched] = useState(false);
@@ -150,7 +170,6 @@ export function ProblemBoardTab({
 
   const voterKey = sanitizeKey(userName);
 
-  // Merge optimistic local card moves until Firebase echoes the updated column/order
   const effectiveCards = useMemo(() => {
     const keys = Object.keys(optimisticMoves);
     if (keys.length === 0) return cards;
@@ -160,7 +179,6 @@ export function ProblemBoardTab({
     });
   }, [cards, optimisticMoves]);
 
-  // Clear optimistic overrides once server catches up
   useEffect(() => {
     setOptimisticMoves((prev) => {
       const keys = Object.keys(prev);
@@ -182,27 +200,26 @@ export function ProblemBoardTab({
     });
   }, [cards]);
 
-  const availableGroups = useMemo(() => {
-    const groups = new Set<string>(STARTER_OPTIONS.map((o) => o.shortLabel));
-    effectiveCards.forEach((c) => {
-      if (c.ideaGroup) groups.add(c.ideaGroup);
-    });
-    return Array.from(groups);
-  }, [effectiveCards]);
+  const activeSynthesis = useMemo(
+    () => (activeIdea ? synthesizeRootFromBedah(activeIdea, effectiveCards) : null),
+    [activeIdea, effectiveCards]
+  );
 
   const filteredCards = useMemo(() => {
+    const base =
+      !showAllIdeas && activeIdea
+        ? getCardsForIdea(effectiveCards, activeIdea)
+        : effectiveCards;
     const q = searchQuery.trim().toLowerCase();
-    return effectiveCards.filter((c) => {
-      if (selectedGroup !== 'ALL' && c.ideaGroup !== selectedGroup) return false;
-      if (!q) return true;
-      return (
+    if (!q) return base;
+    return base.filter(
+      (c) =>
         c.title.toLowerCase().includes(q) ||
         c.content.toLowerCase().includes(q) ||
         c.author.toLowerCase().includes(q) ||
         c.ideaGroup.toLowerCase().includes(q)
-      );
-    });
-  }, [effectiveCards, selectedGroup, searchQuery]);
+    );
+  }, [effectiveCards, showAllIdeas, activeIdea, searchQuery]);
 
   const cardsByColumn = useMemo(() => {
     const map: Record<ColumnId, BoardCard[]> = {
@@ -275,7 +292,7 @@ export function ProblemBoardTab({
           session.handleEl.releasePointerCapture(session.pointerId);
         }
       } catch {
-        // ignore if already released
+        // ignore
       }
     }
     dragRef.current = null;
@@ -289,7 +306,6 @@ export function ProblemBoardTab({
     setDropSlot(null);
   }, []);
 
-  // Measure target column and insertion index via elementFromPoint + static sibling midpoints
   const hitTestDropSlot = useCallback(
     (clientX: number, clientY: number, draggedId: string): { colId: ColumnId; index: number } | null => {
       const hitEl = document.elementFromPoint(clientX, clientY);
@@ -321,7 +337,6 @@ export function ProblemBoardTab({
     []
   );
 
-  // Escape key cancels active drag cleanly
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && dragRef.current?.activated) {
@@ -338,7 +353,6 @@ export function ProblemBoardTab({
     };
   }, [cleanupDragSession]);
 
-  // Paint lifted floating card via GPU transform on animation frame (0 React re-renders!)
   const scheduleGhostTransform = useCallback((x: number, y: number) => {
     pendingCoordsRef.current = { x, y };
     if (rafRef.current !== null) return;
@@ -357,7 +371,7 @@ export function ProblemBoardTab({
     card: BoardCard
   ) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    if (dragRef.current) return; // Single-pointer guard
+    if (dragRef.current) return;
 
     const cardArticle = e.currentTarget.closest<HTMLElement>('[data-kanban-card-id]');
     if (!cardArticle) return;
@@ -431,7 +445,6 @@ export function ProblemBoardTab({
     cleanupDragSession();
   };
 
-  // Position floating ghost immediately once it mounts
   useEffect(() => {
     const session = dragRef.current;
     if (draggingCard && session && ghostRef.current) {
@@ -443,7 +456,6 @@ export function ProblemBoardTab({
     }
   }, [draggingCard]);
 
-  // Keyboard-accessible reordering & cross-column move on focused drag handle
   const handleHandleKeyDown = (
     e: React.KeyboardEvent<HTMLButtonElement>,
     card: BoardCard
@@ -475,8 +487,8 @@ export function ProblemBoardTab({
     setFormColumn(columnId);
     setFormTitle('');
     setFormContent('');
-    setFormIdeaGroup(selectedGroup !== 'ALL' ? selectedGroup : `Ide · ${userName}`);
-    setFormTheme('');
+    setFormIdeaId(activeIdea?.id ?? ideas[0]?.id ?? '');
+    setFormTheme(activeIdea?.canvas?.temaPkm ?? '');
     setTitleTouched(false);
     setCardModalOpen(true);
   };
@@ -486,7 +498,7 @@ export function ProblemBoardTab({
     setFormColumn(card.columnId);
     setFormTitle(card.title);
     setFormContent(card.content);
-    setFormIdeaGroup(card.ideaGroup);
+    setFormIdeaId(card.ideaId ?? activeIdea?.id ?? ideas[0]?.id ?? '');
     setFormTheme(card.pkmTheme ?? '');
     setTitleTouched(false);
     setCardModalOpen(true);
@@ -496,22 +508,27 @@ export function ProblemBoardTab({
     e.preventDefault();
     setTitleTouched(true);
     if (!formTitle.trim()) return;
+    const chosenIdea = ideas.find((i) => i.id === formIdeaId) ?? activeIdea ?? ideas[0];
+    if (!chosenIdea) return;
+
     setFormSubmitting(true);
     try {
       if (editingCard) {
         await onUpdateCard(editingCard.id, {
+          ideaId: chosenIdea.id,
+          ideaGroup: chosenIdea.name,
           columnId: formColumn,
           title: formTitle.trim(),
           content: formContent.trim(),
-          ideaGroup: formIdeaGroup.trim() || `Ide · ${userName}`,
           pkmTheme: formTheme.trim(),
         });
       } else {
         await onAddCard({
+          ideaId: chosenIdea.id,
+          ideaGroup: chosenIdea.name,
           columnId: formColumn,
           title: formTitle.trim(),
           content: formContent.trim(),
-          ideaGroup: formIdeaGroup.trim() || `Ide · ${userName}`,
           pkmTheme: formTheme.trim(),
         });
       }
@@ -546,571 +563,625 @@ export function ProblemBoardTab({
   const currentColMeta = BOARD_COLUMNS.find((c) => c.id === formColumn) ?? BOARD_COLUMNS[0];
 
   return (
-    <div
-      ref={containerRef}
-      onPointerMove={handlePointerMove}
-      className="relative mx-auto min-h-[calc(100dvh-57px)] max-w-[1680px] space-y-5 px-4 py-6 sm:px-6"
-    >
-      <PageCursorsOverlay
-        roomId={roomId}
-        mySessionId={sessionId}
-        tab="board"
-        visible={showCursors}
+    <div className="min-h-[calc(100dvh-57px)]">
+      {/* Shared Multi-Idea Switcher Bar */}
+      <IdeaSwitcherBar
+        ideas={ideas}
+        activeIdeaId={activeIdea?.id ?? ''}
+        cards={cards}
+        freeNotes={freeNotes}
+        onSelectIdea={(id) => {
+          setShowAllIdeas(false);
+          onSelectIdea(id);
+        }}
+        onCreateIdea={onCreateIdea}
+        onRenameIdea={onRenameIdea}
+        onDeleteIdea={onDeleteIdea}
+        stageHint="Tahap 2: Bedah 4 pilar → sintetis jadi Akar Masalah"
+        nextCta={
+          activeIdea
+            ? {
+                label: 'Lanjut ke Mindmap',
+                onClick: () => {
+                  onSyncBedahToMindmapAndGo(activeIdea).catch(() => {});
+                },
+              }
+            : undefined
+        }
       />
 
-      {/* Polite screen reader announcements for Kanban moves */}
-      <div className="visually-hidden" role="status" aria-live="polite">
-        {liveAnnouncement}
-      </div>
+      <div
+        ref={containerRef}
+        onPointerMove={handlePointerMove}
+        className="relative mx-auto max-w-[1680px] space-y-5 px-4 py-5 sm:px-6"
+      >
+        <PageCursorsOverlay
+          roomId={roomId}
+          mySessionId={sessionId}
+          tab="board"
+          visible
+        />
 
-      {/* Minimalist Filter & Action Row */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setSelectedGroup('ALL')}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-              selectedGroup === 'ALL'
-                ? 'bg-[var(--btn-solid-bg)] text-[var(--btn-solid-fg)]'
-                : 'border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            Semua ({effectiveCards.length})
-          </button>
-          {availableGroups.map((group) => {
-            const count = effectiveCards.filter((c) => c.ideaGroup === group).length;
-            return (
-              <button
-                key={group}
-                type="button"
-                onClick={() => setSelectedGroup(group)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                  selectedGroup === group
-                    ? 'bg-[var(--btn-solid-bg)] text-[var(--btn-solid-fg)]'
-                    : 'border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                {group} ({count})
-              </button>
-            );
-          })}
+        <div className="visually-hidden" role="status" aria-live="polite">
+          {liveAnnouncement}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-muted)]" />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari kartu..."
-              aria-label="Cari kartu bedah ide"
-              className="w-44 rounded-full border border-[var(--border)] bg-[var(--bg-surface)] py-1.5 pl-8 pr-3 text-xs text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] sm:w-56"
-            />
-          </div>
+        {/* Live 4-Pillar Synthesis Card (Bridges Tab 2 Bedah -> Tab 3 Mindmap Root!) */}
+        {activeIdea && activeSynthesis && !showAllIdeas && (
+          <section className="rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] p-4 shadow-[var(--shadow-card)]">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold"
+                    style={{
+                      backgroundColor: 'var(--accent-soft)',
+                      color: 'var(--accent)',
+                    }}
+                  >
+                    <GitBranch className="h-3 w-3" />
+                    Sintesis Akar Masalah ({activeSynthesis.filledPillars}/4 Pilar)
+                  </span>
 
-          <button
-            type="button"
-            onClick={cycleSortMode}
-            title="Klik untuk ganti urutan kartu (Trello Manual / Top Vote / Terbaru)"
-            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg-surface)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]"
-          >
-            <ArrowUpDown className="h-3.5 w-3.5 text-[var(--text-muted)]" />
-            <span>{sortLabel}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => openNewCardModal('problem')}
-            className="inline-flex items-center gap-1.5 rounded-full bg-[var(--btn-solid-bg)] px-3.5 py-1.5 text-xs font-semibold text-[var(--btn-solid-fg)] transition hover:bg-[var(--btn-solid-hover)]"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Tambah Kartu</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Subtle Kanban hint */}
-      <p className="text-[11px] text-[var(--text-muted)]">
-        Tip: Seret ikon <GripVertical className="inline h-3 w-3 align-[-2px]" /> di kiri atas kartu untuk memindahkan antar kolom atau mengubah urutan seperti Trello (mendukung tombol panah keyboard).
-      </p>
-
-      {/* 4 Clean Trello-Style Kanban Columns (content-visibility: auto containment) */}
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {BOARD_COLUMNS.map((col) => {
-          const colCards = cardsByColumn[col.id];
-          const isDropCol = draggingCard && dropSlot?.colId === col.id;
-          // Visible cards excluding the currently lifted card (for crisp drop indicator indexing)
-          const siblingsWithoutDragged = draggingCard
-            ? colCards.filter((c) => c.id !== draggingCard.card.id)
-            : colCards;
-
-          return (
-            <section
-              key={col.id}
-              data-kanban-col={col.id}
-              aria-label={`Kolom ${col.title}`}
-              className={`kanban-column flex min-h-[480px] flex-col rounded-2xl border border-t-2 ${col.topAccent} bg-[var(--bg-subtle)] p-3 transition-colors ${
-                isDropCol
-                  ? 'border-[var(--accent)] ring-2 ring-[var(--accent)]/25'
-                  : 'border-[var(--border)]'
-              }`}
-            >
-              <div className="mb-3 flex items-start justify-between gap-2 px-1">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono-code text-[11px] font-semibold text-[var(--text-muted)]">
-                      {col.stepNumber}
+                  {[
+                    { ok: activeSynthesis.hasProblem, label: '01 Masalah' },
+                    { ok: activeSynthesis.hasUrgency, label: '02 Urgensi' },
+                    { ok: activeSynthesis.hasTargetUser, label: '03 Target User' },
+                    { ok: activeSynthesis.hasNeeds, label: '04 Kebutuhan' },
+                  ].map((p) => (
+                    <span
+                      key={p.label}
+                      className={`inline-flex items-center gap-1 text-[11px] font-medium ${
+                        p.ok ? 'text-emerald-500' : 'text-[var(--text-muted)]'
+                      }`}
+                    >
+                      {p.ok ? (
+                        <CheckCircle2 className="h-3 w-3" />
+                      ) : (
+                        <Circle className="h-3 w-3" />
+                      )}
+                      <span>{p.label}</span>
                     </span>
-                    <h2 className="text-sm font-bold text-[var(--text-primary)]">{col.title}</h2>
-                    <span className="rounded-full bg-[var(--bg-surface)] px-1.5 py-0.2 text-[11px] font-semibold text-[var(--text-muted)]">
-                      {colCards.length}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">{col.subtitle}</p>
+                  ))}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => openNewCardModal(col.id)}
-                  title={`Tambah di ${col.title}`}
-                  className="rounded-lg p-1.5 text-[var(--text-muted)] transition hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
+
+                <p className="text-xs leading-relaxed text-[var(--text-primary)] sm:text-[13px]">
+                  {activeSynthesis.povStatement}
+                </p>
               </div>
 
-              <div data-kanban-list={col.id} className="flex flex-1 flex-col gap-2.5">
-                {colCards.length === 0 ? (
-                  <>
-                    {isDropCol && (
-                      <div
-                        aria-hidden="true"
-                        className="h-1.5 rounded-full bg-[var(--drop-marker-color)]"
-                      />
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => openNewCardModal(col.id)}
-                      className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[var(--border-strong)] bg-[var(--bg-surface)]/45 p-6 text-xs text-[var(--text-muted)] transition hover:border-[var(--accent)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
-                    >
-                      <Plus className="mb-1 h-4 w-4" />
-                      <span>Tulis atau jatuhkan kartu ke {col.title.toLowerCase()}</span>
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    {colCards.map((card) => {
-                      const isBeingDragged = draggingCard?.card.id === card.id;
-                      const siblingIdx = siblingsWithoutDragged.findIndex(
-                        (s) => s.id === card.id
-                      );
-                      const showMarkerBefore =
-                        isDropCol &&
-                        !isBeingDragged &&
-                        siblingIdx !== -1 &&
-                        dropSlot?.index === siblingIdx;
+              <button
+                type="button"
+                onClick={() => onSyncBedahToMindmapAndGo(activeIdea)}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-3.5 py-1.5 text-xs font-semibold text-[var(--accent)] transition hover:bg-[var(--accent)] hover:text-white"
+              >
+                <span>Kirim ke Root Mindmap</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </section>
+        )}
 
-                      const votes = getVoteCount(card);
-                      const hasVoted = Boolean(card.votes?.[voterKey]);
-                      const commentList = card.comments
-                        ? Object.values(card.comments).sort((a, b) => a.createdAt - b.createdAt)
-                        : [];
-                      const commentsOpen = Boolean(expandedComments[card.id]);
+        {/* Filter, Search & Sort Row */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowAllIdeas((v) => !v)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${
+                showAllIdeas
+                  ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]'
+                  : 'border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              <Layers className="h-3.5 w-3.5" />
+              <span>
+                {showAllIdeas
+                  ? `Semua Ide (${effectiveCards.length} kartu)`
+                  : `Fokus: ${activeIdea?.name ?? '-'} (${filteredCards.length} kartu)`}
+              </span>
+            </button>
+            <span className="hidden text-[11px] text-[var(--text-muted)] sm:inline">
+              Seret ikon <GripVertical className="inline h-3 w-3 align-[-2px]" /> untuk pindah kolom/urutan
+            </span>
+          </div>
 
-                      return (
-                        <div key={card.id} className="space-y-2.5">
-                          {showMarkerBefore && (
-                            <div
-                              aria-hidden="true"
-                              className="h-1.5 rounded-full bg-[var(--drop-marker-color)] shadow-xs"
-                            />
-                          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-muted)]" />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari kartu..."
+                aria-label="Cari kartu bedah ide"
+                className="w-40 rounded-full border border-[var(--border)] bg-[var(--bg-surface)] py-1.5 pl-8 pr-3 text-xs text-[var(--text-primary)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] sm:w-52"
+              />
+            </div>
 
-                          <article
-                            data-kanban-card-id={card.id}
-                            className={`group rounded-xl border bg-[var(--bg-surface)] p-3.5 transition ${
-                              isBeingDragged
-                                ? 'border-dashed border-[var(--accent)] opacity-35'
-                                : 'border-[var(--border)] shadow-[var(--shadow-card)] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-card-hover)]'
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex min-w-0 items-center gap-1.5">
-                                <button
-                                  type="button"
-                                  onPointerDown={(e) => handleDragPointerDown(e, card)}
-                                  onPointerMove={handleDragPointerMove}
-                                  onPointerUp={handleDragPointerUp}
-                                  onPointerCancel={handleDragPointerCancel}
-                                  onKeyDown={(e) => handleHandleKeyDown(e, card)}
-                                  title="Seret kartu (atau fokus + tombol panah ↑↓←→)"
-                                  aria-label={`Pindahkan kartu ${card.title}. Seret atau gunakan tombol panah.`}
-                                  className="kanban-drag-handle -ml-1 flex h-6 w-5 shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
-                                >
-                                  <GripVertical className="h-3.5 w-3.5" aria-hidden="true" />
-                                </button>
-                                <span className="truncate text-[11px] font-medium text-[var(--text-muted)]">
-                                  {card.ideaGroup}
-                                </span>
-                              </div>
+            <button
+              type="button"
+              onClick={cycleSortMode}
+              title="Ganti urutan kartu (Trello Manual / Top Vote / Terbaru)"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg-surface)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]"
+            >
+              <ArrowUpDown className="h-3.5 w-3.5 text-[var(--text-muted)]" />
+              <span>{sortLabel}</span>
+            </button>
 
-                              <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-                                <button
-                                  type="button"
-                                  onClick={() => openEditCardModal(card)}
-                                  aria-label={`Edit ${card.title}`}
-                                  className="rounded-md p-1 text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]"
-                                >
-                                  <Edit3 className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setPendingDelete(card)}
-                                  aria-label={`Hapus ${card.title}`}
-                                  className="rounded-md p-1 text-[var(--text-muted)] hover:bg-rose-500/15 hover:text-rose-500"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            </div>
+            <button
+              type="button"
+              onClick={() => openNewCardModal('problem')}
+              className="inline-flex items-center gap-1.5 rounded-full bg-[var(--btn-solid-bg)] px-3.5 py-1.5 text-xs font-semibold text-[var(--btn-solid-fg)] transition hover:bg-[var(--btn-solid-hover)]"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Tambah Kartu</span>
+            </button>
+          </div>
+        </div>
 
-                            <h3 className="mt-1 text-[13.5px] font-semibold leading-snug text-[var(--text-primary)]">
-                              {card.title}
-                            </h3>
-                            {card.content && (
-                              <p className="mt-1.5 whitespace-pre-line text-xs leading-relaxed text-[var(--text-secondary)]">
-                                {card.content}
-                              </p>
+        {/* 4 Clean Trello-Style Kanban Columns */}
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {BOARD_COLUMNS.map((col) => {
+            const colCards = cardsByColumn[col.id];
+            const isDropCol = draggingCard && dropSlot?.colId === col.id;
+            const siblingsWithoutDragged = draggingCard
+              ? colCards.filter((c) => c.id !== draggingCard.card.id)
+              : colCards;
+
+            return (
+              <section
+                key={col.id}
+                data-kanban-col={col.id}
+                aria-label={`Kolom ${col.title}`}
+                className={`kanban-column flex min-h-[450px] flex-col rounded-2xl border border-t-2 ${col.topAccent} bg-[var(--bg-subtle)] p-3 transition-colors ${
+                  isDropCol
+                    ? 'border-[var(--accent)] ring-2 ring-[var(--accent)]/25'
+                    : 'border-[var(--border)]'
+                }`}
+              >
+                <div className="mb-3 flex items-start justify-between gap-2 px-1">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono-code text-[11px] font-semibold text-[var(--text-muted)]">
+                        {col.stepNumber}
+                      </span>
+                      <h2 className="text-sm font-bold text-[var(--text-primary)]">{col.title}</h2>
+                      <span className="rounded-full bg-[var(--bg-surface)] px-1.5 py-0.2 text-[11px] font-semibold text-[var(--text-muted)]">
+                        {colCards.length}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">{col.subtitle}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openNewCardModal(col.id)}
+                    title={`Tambah di ${col.title}`}
+                    className="rounded-lg p-1.5 text-[var(--text-muted)] transition hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div data-kanban-list={col.id} className="flex flex-1 flex-col gap-2.5">
+                  {colCards.length === 0 ? (
+                    <>
+                      {isDropCol && (
+                        <div
+                          aria-hidden="true"
+                          className="h-1.5 rounded-full bg-[var(--drop-marker-color)]"
+                        />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => openNewCardModal(col.id)}
+                        className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-[var(--border-strong)] bg-[var(--bg-surface)]/45 p-6 text-xs text-[var(--text-muted)] transition hover:border-[var(--accent)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
+                      >
+                        <Plus className="mb-1 h-4 w-4" />
+                        <span>Tulis {col.title.toLowerCase()}</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {colCards.map((card) => {
+                        const isBeingDragged = draggingCard?.card.id === card.id;
+                        const siblingIdx = siblingsWithoutDragged.findIndex(
+                          (s) => s.id === card.id
+                        );
+                        const showMarkerBefore =
+                          isDropCol &&
+                          !isBeingDragged &&
+                          siblingIdx !== -1 &&
+                          dropSlot?.index === siblingIdx;
+
+                        const votes = getVoteCount(card);
+                        const hasVoted = Boolean(card.votes?.[voterKey]);
+                        const commentList = card.comments
+                          ? Object.values(card.comments).toSorted((a, b) => a.createdAt - b.createdAt)
+                          : [];
+                        const commentsOpen = Boolean(expandedComments[card.id]);
+
+                        return (
+                          <div key={card.id} className="space-y-2.5">
+                            {showMarkerBefore && (
+                              <div
+                                aria-hidden="true"
+                                className="h-1.5 rounded-full bg-[var(--drop-marker-color)] shadow-xs"
+                              />
                             )}
 
-                            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-2.5">
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => onToggleVote(card.id, hasVoted)}
-                                  aria-pressed={hasVoted}
-                                  className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold transition ${
-                                    hasVoted
-                                      ? 'bg-[var(--btn-solid-bg)] text-[var(--btn-solid-fg)]'
-                                      : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                                  }`}
-                                >
-                                  <ThumbsUp className="h-3 w-3" />
-                                  <span>{votes}</span>
-                                </button>
+                            <article
+                              data-kanban-card-id={card.id}
+                              className={`group rounded-xl border bg-[var(--bg-surface)] p-3.5 transition ${
+                                isBeingDragged
+                                  ? 'border-dashed border-[var(--accent)] opacity-35'
+                                  : 'border-[var(--border)] shadow-[var(--shadow-card)] hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-card-hover)]'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex min-w-0 items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onPointerDown={(e) => handleDragPointerDown(e, card)}
+                                    onPointerMove={handleDragPointerMove}
+                                    onPointerUp={handleDragPointerUp}
+                                    onPointerCancel={handleDragPointerCancel}
+                                    onKeyDown={(e) => handleHandleKeyDown(e, card)}
+                                    title="Seret kartu (atau fokus + panah ↑↓←→)"
+                                    aria-label={`Pindahkan kartu ${card.title}. Seret atau gunakan tombol panah.`}
+                                    className="kanban-drag-handle -ml-1 flex h-6 w-5 shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] transition hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
+                                  >
+                                    <GripVertical className="h-3.5 w-3.5" aria-hidden="true" />
+                                  </button>
+                                  <span className="truncate text-[11px] font-medium text-[var(--text-muted)]">
+                                    {card.ideaGroup}
+                                  </span>
+                                </div>
 
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setExpandedComments((prev) => ({
-                                      ...prev,
-                                      [card.id]: !prev[card.id],
-                                    }))
-                                  }
-                                  className="inline-flex items-center gap-1 rounded-full bg-[var(--bg-subtle)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] transition hover:text-[var(--text-primary)]"
-                                >
-                                  <MessageSquare className="h-3 w-3" />
-                                  <span>{commentList.length || 'Notes'}</span>
-                                </button>
+                                <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                                  <button
+                                    type="button"
+                                    onClick={() => openEditCardModal(card)}
+                                    aria-label={`Edit ${card.title}`}
+                                    className="rounded-md p-1 text-[var(--text-muted)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]"
+                                  >
+                                    <Edit3 className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setPendingDelete(card)}
+                                    aria-label={`Hapus ${card.title}`}
+                                    className="rounded-md p-1 text-[var(--text-muted)] hover:bg-rose-500/15 hover:text-rose-500"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
 
-                                <span className="max-w-[90px] truncate text-[11px] text-[var(--text-muted)]">
+                              <h3 className="mt-1 text-[13.5px] font-semibold leading-snug text-[var(--text-primary)]">
+                                {card.title}
+                              </h3>
+                              {card.content && (
+                                <p className="mt-1.5 whitespace-pre-line text-xs leading-relaxed text-[var(--text-secondary)]">
+                                  {card.content}
+                                </p>
+                              )}
+
+                              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-2.5">
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => onToggleVote(card.id, hasVoted)}
+                                    aria-pressed={hasVoted}
+                                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold transition ${
+                                      hasVoted
+                                        ? 'bg-[var(--btn-solid-bg)] text-[var(--btn-solid-fg)]'
+                                        : 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                                    }`}
+                                  >
+                                    <ThumbsUp className="h-3 w-3" />
+                                    <span>{votes}</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setExpandedComments((prev) => ({
+                                        ...prev,
+                                        [card.id]: !prev[card.id],
+                                      }))
+                                    }
+                                    className="inline-flex items-center gap-1 rounded-full bg-[var(--bg-subtle)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] transition hover:text-[var(--text-primary)]"
+                                  >
+                                    <MessageSquare className="h-3 w-3" />
+                                    <span>{commentList.length || 'Notes'}</span>
+                                  </button>
+                                </div>
+
+                                <span className="max-w-[100px] truncate text-[11px] text-[var(--text-muted)]">
                                   {card.author}
                                 </span>
                               </div>
 
-                              <button
-                                type="button"
-                                onClick={() => onSetRootMindmap(card)}
-                                title="Jadikan Root Mindmap"
-                                className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] transition hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-white"
-                              >
-                                <GitBranch className="h-3 w-3" />
-                                <span>Mindmap</span>
-                              </button>
-                            </div>
-
-                            {/* Inline Expandable Notes / Comments */}
-                            {commentsOpen && (
-                              <div className="mt-2.5 space-y-2 border-t border-[var(--border)] pt-2.5">
-                                {commentList.map((cmt) => (
-                                  <div
-                                    key={cmt.id}
-                                    className="rounded-lg bg-[var(--bg-subtle)] px-2.5 py-1.5 text-[11px]"
-                                  >
-                                    <span
-                                      className="font-semibold"
-                                      style={{ color: cmt.color }}
+                              {commentsOpen && (
+                                <div className="mt-2.5 space-y-2 border-t border-[var(--border)] pt-2.5">
+                                  {commentList.map((cmt) => (
+                                    <div
+                                      key={cmt.id}
+                                      className="rounded-lg bg-[var(--bg-subtle)] px-2.5 py-1.5 text-[11px]"
                                     >
-                                      {cmt.author}:{' '}
-                                    </span>
-                                    <span className="text-[var(--text-primary)]">
-                                      {cmt.text}
-                                    </span>
-                                  </div>
-                                ))}
-                                <form
-                                  onSubmit={async (e) => {
-                                    e.preventDefault();
-                                    const txt = (commentDrafts[card.id] ?? '').trim();
-                                    if (!txt) return;
-                                    setCommentDrafts((d) => ({ ...d, [card.id]: '' }));
-                                    await onAddComment(card.id, txt);
-                                  }}
-                                  className="flex items-center gap-1.5"
-                                >
-                                  <input
-                                    type="text"
-                                    value={commentDrafts[card.id] ?? ''}
-                                    onChange={(e) =>
-                                      setCommentDrafts((d) => ({
-                                        ...d,
-                                        [card.id]: e.target.value,
-                                      }))
-                                    }
-                                    placeholder="Tambah catatan diskusi..."
-                                    className="flex-1 rounded-full border border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-1 text-[11px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:bg-[var(--bg-surface)]"
-                                  />
-                                  <button
-                                    type="submit"
-                                    aria-label="Kirim catatan"
-                                    className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--btn-solid-bg)] text-[var(--btn-solid-fg)] hover:bg-[var(--btn-solid-hover)]"
+                                      <span
+                                        className="font-semibold"
+                                        style={{ color: cmt.color }}
+                                      >
+                                        {cmt.author}:{' '}
+                                      </span>
+                                      <span className="text-[var(--text-primary)]">
+                                        {cmt.text}
+                                      </span>
+                                    </div>
+                                  ))}
+                                  <form
+                                    onSubmit={async (e) => {
+                                      e.preventDefault();
+                                      const txt = (commentDrafts[card.id] ?? '').trim();
+                                      if (!txt) return;
+                                      setCommentDrafts((d) => ({ ...d, [card.id]: '' }));
+                                      await onAddComment(card.id, txt);
+                                    }}
+                                    className="flex items-center gap-1.5"
                                   >
-                                    <Send className="h-3 w-3" />
-                                  </button>
-                                </form>
-                              </div>
-                            )}
-                          </article>
-                        </div>
-                      );
-                    })}
+                                    <input
+                                      type="text"
+                                      value={commentDrafts[card.id] ?? ''}
+                                      onChange={(e) =>
+                                        setCommentDrafts((d) => ({
+                                          ...d,
+                                          [card.id]: e.target.value,
+                                        }))
+                                      }
+                                      placeholder="Tambah catatan diskusi..."
+                                      className="flex-1 rounded-full border border-[var(--border)] bg-[var(--bg-subtle)] px-3 py-1 text-[11px] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:bg-[var(--bg-surface)]"
+                                    />
+                                    <button
+                                      type="submit"
+                                      aria-label="Kirim catatan"
+                                      className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--btn-solid-bg)] text-[var(--btn-solid-fg)] hover:bg-[var(--btn-solid-hover)]"
+                                    >
+                                      <Send className="h-3 w-3" />
+                                    </button>
+                                  </form>
+                                </div>
+                              )}
+                            </article>
+                          </div>
+                        );
+                      })}
 
-                    {/* Drop indicator at the end of the column */}
-                    {isDropCol && dropSlot && dropSlot.index >= siblingsWithoutDragged.length && (
-                      <div
-                        aria-hidden="true"
-                        className="h-1.5 rounded-full bg-[var(--drop-marker-color)] shadow-xs"
-                      />
-                    )}
-                  </>
-                )}
-              </div>
-            </section>
-          );
-        })}
-      </div>
-
-      {/* GPU-Accelerated Floating Dragged Card Overlay */}
-      {draggingCard && (
-        <div
-          ref={ghostRef}
-          aria-hidden="true"
-          style={{ width: draggingCard.width }}
-          className="pointer-events-none fixed left-0 top-0 z-50 rounded-xl border-2 border-[var(--accent)] bg-[var(--bg-elevated)] p-3.5 shadow-[var(--shadow-float)] will-change-transform"
-        >
-          <div className="flex items-center gap-1.5">
-            <GripVertical className="h-3.5 w-3.5 text-[var(--accent)]" />
-            <span className="truncate text-[11px] font-medium text-[var(--text-muted)]">
-              {draggingCard.card.ideaGroup}
-            </span>
-          </div>
-          <p className="mt-1 text-[13.5px] font-semibold leading-snug text-[var(--text-primary)]">
-            {draggingCard.card.title}
-          </p>
-          {draggingCard.card.content && (
-            <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-[var(--text-secondary)]">
-              {draggingCard.card.content}
-            </p>
-          )}
+                      {isDropCol && dropSlot && dropSlot.index >= siblingsWithoutDragged.length && (
+                        <div
+                          aria-hidden="true"
+                          className="h-1.5 rounded-full bg-[var(--drop-marker-color)] shadow-xs"
+                        />
+                      )}
+                    </>
+                  )}
+                </div>
+              </section>
+            );
+          })}
         </div>
-      )}
 
-      {/* Minimalist Add / Edit Card Dialog */}
-      <ModalDialog
-        open={cardModalOpen}
-        onClose={() => setCardModalOpen(false)}
-        title={editingCard ? 'Edit Kartu' : 'Tambah Kartu Bedah Ide'}
-        maxWidthClass="max-w-lg"
-      >
-        <form onSubmit={handleCardSubmit} noValidate className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label
-                htmlFor="card-column-select"
-                className="block text-xs font-semibold text-[var(--text-primary)]"
-              >
-                Kolom
-              </label>
-              <select
-                id="card-column-select"
-                value={formColumn}
-                onChange={(e) => setFormColumn(e.target.value as ColumnId)}
-                className="mt-1 w-full rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)] focus:bg-[var(--bg-surface)]"
-              >
-                {BOARD_COLUMNS.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.stepNumber}. {c.title}
-                  </option>
-                ))}
-              </select>
+        {/* GPU Floating Drag Preview */}
+        {draggingCard && (
+          <div
+            ref={ghostRef}
+            aria-hidden="true"
+            style={{ width: draggingCard.width }}
+            className="pointer-events-none fixed left-0 top-0 z-50 rounded-xl border-2 border-[var(--accent)] bg-[var(--bg-elevated)] p-3.5 shadow-[var(--shadow-float)] will-change-transform"
+          >
+            <div className="flex items-center gap-1.5">
+              <GripVertical className="h-3.5 w-3.5 text-[var(--accent)]" />
+              <span className="truncate text-[11px] font-medium text-[var(--text-muted)]">
+                {draggingCard.card.ideaGroup}
+              </span>
+            </div>
+            <p className="mt-1 text-[13.5px] font-semibold leading-snug text-[var(--text-primary)]">
+              {draggingCard.card.title}
+            </p>
+            {draggingCard.card.content && (
+              <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-[var(--text-secondary)]">
+                {draggingCard.card.content}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Add / Edit Card Modal */}
+        <ModalDialog
+          open={cardModalOpen}
+          onClose={() => setCardModalOpen(false)}
+          title={editingCard ? 'Edit Kartu' : 'Tambah Kartu Bedah Ide'}
+          maxWidthClass="max-w-lg"
+        >
+          <form onSubmit={handleCardSubmit} noValidate className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="card-idea-select"
+                  className="block text-xs font-semibold text-[var(--text-primary)]"
+                >
+                  Ide Terkait
+                </label>
+                <select
+                  id="card-idea-select"
+                  value={formIdeaId}
+                  onChange={(e) => setFormIdeaId(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                >
+                  {ideas.map((idea) => (
+                    <option key={idea.id} value={idea.id}>
+                      {idea.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="card-column-select"
+                  className="block text-xs font-semibold text-[var(--text-primary)]"
+                >
+                  Pilar Kolom
+                </label>
+                <select
+                  id="card-column-select"
+                  value={formColumn}
+                  onChange={(e) => setFormColumn(e.target.value as ColumnId)}
+                  className="mt-1 w-full rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                >
+                  {BOARD_COLUMNS.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.stepNumber}. {c.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div>
               <label
-                htmlFor="card-group-input"
+                htmlFor="card-title-input"
                 className="block text-xs font-semibold text-[var(--text-primary)]"
               >
-                Kelompok Ide
+                Judul Singkat
+              </label>
+              <span id="card-title-hint" className="mt-0.5 block text-[11px] text-[var(--text-muted)]">
+                {currentColMeta.subtitle}
+              </span>
+              <input
+                id="card-title-input"
+                type="text"
+                required
+                autoFocus
+                value={formTitle}
+                onChange={(e) => setFormTitle(e.target.value)}
+                onBlur={() => setTitleTouched(true)}
+                aria-invalid={titleTouched && !formTitle.trim() ? 'true' : 'false'}
+                aria-describedby={
+                  titleTouched && !formTitle.trim()
+                    ? 'card-title-hint card-title-error'
+                    : 'card-title-hint'
+                }
+                placeholder={currentColMeta.placeholderTitle}
+                className={`pkm-field-input mt-1 w-full rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] px-3.5 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)] focus:bg-[var(--bg-surface)] ${
+                  titleTouched && !formTitle.trim() ? 'user-invalid-fallback' : ''
+                }`}
+              />
+              <div
+                id="card-title-error"
+                className="pkm-field-error mt-1 items-center gap-1 text-xs font-medium text-rose-500"
+              >
+                <span>Error: Judul kartu wajib diisi.</span>
+              </div>
+            </div>
+
+            <div>
+              <label
+                htmlFor="card-content-input"
+                className="block text-xs font-semibold text-[var(--text-primary)]"
+              >
+                Detail / Penjelasan
+              </label>
+              <textarea
+                id="card-content-input"
+                rows={3}
+                value={formContent}
+                onChange={(e) => setFormContent(e.target.value)}
+                placeholder={currentColMeta.placeholderContent}
+                className="pkm-textarea mt-1 w-full rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] px-3.5 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)] focus:bg-[var(--bg-surface)]"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="card-theme-input"
+                className="block text-xs font-semibold text-[var(--text-primary)]"
+              >
+                Tema / Kategori (Bebas, Opsional)
               </label>
               <input
-                id="card-group-input"
+                id="card-theme-input"
                 type="text"
-                list="idea-group-suggestions"
-                value={formIdeaGroup}
-                onChange={(e) => setFormIdeaGroup(e.target.value)}
-                placeholder={`Ide · ${userName}`}
+                list="pkm-theme-datalist"
+                value={formTheme}
+                onChange={(e) => setFormTheme(e.target.value)}
+                placeholder="Ketik tema bebas atau pilih saran tema PKM..."
                 className="mt-1 w-full rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)] focus:bg-[var(--bg-surface)]"
               />
-              <datalist id="idea-group-suggestions">
-                {availableGroups.map((g) => (
-                  <option key={g} value={g} />
+              <datalist id="pkm-theme-datalist">
+                {PKM_THEMES.map((t) => (
+                  <option key={t} value={t} />
                 ))}
               </datalist>
             </div>
-          </div>
 
-          <div>
-            <label
-              htmlFor="card-title-input"
-              className="block text-xs font-semibold text-[var(--text-primary)]"
-            >
-              Judul Singkat
-            </label>
-            <span id="card-title-hint" className="mt-0.5 block text-[11px] text-[var(--text-muted)]">
-              {currentColMeta.subtitle}
-            </span>
-            <input
-              id="card-title-input"
-              type="text"
-              required
-              autoFocus
-              value={formTitle}
-              onChange={(e) => setFormTitle(e.target.value)}
-              onBlur={() => setTitleTouched(true)}
-              aria-invalid={titleTouched && !formTitle.trim() ? 'true' : 'false'}
-              aria-describedby={
-                titleTouched && !formTitle.trim()
-                  ? 'card-title-hint card-title-error'
-                  : 'card-title-hint'
-              }
-              placeholder={currentColMeta.placeholderTitle}
-              className={`pkm-field-input mt-1 w-full rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] px-3.5 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)] focus:bg-[var(--bg-surface)] ${
-                titleTouched && !formTitle.trim() ? 'user-invalid-fallback' : ''
-              }`}
-            />
-            <div
-              id="card-title-error"
-              className="pkm-field-error mt-1 items-center gap-1 text-xs font-medium text-rose-500"
-            >
-              <span>Error: Judul kartu wajib diisi.</span>
-            </div>
-          </div>
-
-          <div>
-            <label
-              htmlFor="card-content-input"
-              className="block text-xs font-semibold text-[var(--text-primary)]"
-            >
-              Detail / Penjelasan
-            </label>
-            <textarea
-              id="card-content-input"
-              rows={3}
-              value={formContent}
-              onChange={(e) => setFormContent(e.target.value)}
-              placeholder={currentColMeta.placeholderContent}
-              className="pkm-textarea mt-1 w-full rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] px-3.5 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)] focus:bg-[var(--bg-surface)]"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="card-theme-input"
-              className="block text-xs font-semibold text-[var(--text-primary)]"
-            >
-              Tema / Kategori (Bebas, Opsional)
-            </label>
-            <input
-              id="card-theme-input"
-              type="text"
-              list="pkm-theme-datalist"
-              value={formTheme}
-              onChange={(e) => setFormTheme(e.target.value)}
-              placeholder="Ketik tema bebas atau pilih saran tema PKM..."
-              className="mt-1 w-full rounded-xl border border-[var(--border-strong)] bg-[var(--bg-subtle)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)] focus:bg-[var(--bg-surface)]"
-            />
-            <datalist id="pkm-theme-datalist">
-              {PKM_THEMES.map((t) => (
-                <option key={t} value={t} />
-              ))}
-            </datalist>
-          </div>
-
-          <div className="flex items-center justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={() => setCardModalOpen(false)}
-              className="rounded-full border border-[var(--border)] px-4 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]"
-            >
-              Batal
-            </button>
-            <button
-              type="submit"
-              disabled={formSubmitting}
-              className="rounded-full bg-[var(--btn-solid-bg)] px-5 py-1.5 text-xs font-semibold text-[var(--btn-solid-fg)] hover:bg-[var(--btn-solid-hover)] disabled:opacity-50"
-            >
-              {formSubmitting ? 'Menyimpan...' : editingCard ? 'Simpan' : 'Tambahkan'}
-            </button>
-          </div>
-        </form>
-      </ModalDialog>
-
-      {/* Confirm Delete Dialog */}
-      <ModalDialog
-        open={Boolean(pendingDelete)}
-        onClose={() => setPendingDelete(null)}
-        title="Hapus kartu ini?"
-        maxWidthClass="max-w-sm"
-      >
-        {pendingDelete && (
-          <div className="space-y-4">
-            <p className="text-xs text-[var(--text-secondary)]">
-              Kartu <strong className="text-[var(--text-primary)]">{pendingDelete.title}</strong> akan dihapus untuk semua anggota di room.
-            </p>
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 type="button"
-                autoFocus
-                onClick={() => setPendingDelete(null)}
-                className="rounded-full border border-[var(--border)] px-4 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]"
+                onClick={() => setCardModalOpen(false)}
+                className="rounded-full border border-[var(--border)] px-4 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]"
               >
                 Batal
               </button>
               <button
-                type="button"
-                onClick={async () => {
-                  const id = pendingDelete.id;
-                  setPendingDelete(null);
-                  await onDeleteCard(id);
-                }}
-                className="rounded-full bg-rose-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-rose-700"
+                type="submit"
+                disabled={formSubmitting}
+                className="rounded-full bg-[var(--btn-solid-bg)] px-5 py-1.5 text-xs font-semibold text-[var(--btn-solid-fg)] hover:bg-[var(--btn-solid-hover)] disabled:opacity-50"
               >
-                Hapus
+                {formSubmitting ? 'Menyimpan...' : editingCard ? 'Simpan' : 'Tambahkan'}
               </button>
             </div>
-          </div>
-        )}
-      </ModalDialog>
+          </form>
+        </ModalDialog>
+
+        {/* Confirm Delete Dialog */}
+        <ModalDialog
+          open={Boolean(pendingDelete)}
+          onClose={() => setPendingDelete(null)}
+          title="Hapus kartu ini?"
+          maxWidthClass="max-w-sm"
+        >
+          {pendingDelete && (
+            <div className="space-y-4">
+              <p className="text-xs text-[var(--text-secondary)]">
+                Kartu <strong className="text-[var(--text-primary)]">{pendingDelete.title}</strong> akan dihapus untuk semua anggota di room.
+              </p>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  autoFocus
+                  onClick={() => setPendingDelete(null)}
+                  className="rounded-full border border-[var(--border)] px-4 py-1.5 text-xs font-medium text-[var(--text-secondary)]"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const id = pendingDelete.id;
+                    setPendingDelete(null);
+                    await onDeleteCard(id);
+                  }}
+                  className="rounded-full bg-rose-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-rose-700"
+                >
+                  Hapus
+                </button>
+              </div>
+            </div>
+          )}
+        </ModalDialog>
+      </div>
     </div>
   );
 }

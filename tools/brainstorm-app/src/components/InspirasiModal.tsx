@@ -7,52 +7,56 @@ interface InspirasiModalProps {
   open: boolean;
   onClose: () => void;
   onDropToFreeCanvas: (opt: StarterOption) => Promise<void>;
-  onLoadToMindmap: (opt: StarterOption) => Promise<void>;
-  onLoadToCanvas: (opt: StarterOption) => Promise<void>;
-  onRestoreStarterCards: () => Promise<void>;
+  onOpenOptionInStage: (opt: StarterOption, stage: 'mindmap' | 'canvas') => Promise<void>;
+  onRestoreStarterIdeas: () => Promise<void>;
 }
 
 export function InspirasiModal({
   open,
   onClose,
   onDropToFreeCanvas,
-  onLoadToMindmap,
-  onLoadToCanvas,
-  onRestoreStarterCards,
+  onOpenOptionInStage,
+  onRestoreStarterIdeas,
 }: InspirasiModalProps) {
   return (
     <ModalDialog
       open={open}
       onClose={onClose}
-      title="Inspirasi Awal & Alur Pematangan Ide"
-      subtitle="Referensi pemantik dari 01-evaluasi-draft-lama.md. Bebas dipakai, dimodifikasi, atau dilewati."
+      title="Alur 5 Tahap & Opsi Pemantik Awal"
+      subtitle="Referensi pemantik dari 01-evaluasi-draft-lama.md. Setiap ide berjalan mandiri tanpa saling menimpa."
       maxWidthClass="max-w-3xl"
     >
       <div className="space-y-5">
-        {/* Clean 4-step workflow overview */}
-        <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--bg-subtle)] p-3.5 text-xs sm:grid-cols-4">
+        {/* Clean 5-step Double Diamond workflow overview */}
+        <div className="grid gap-2.5 rounded-2xl border border-[var(--border)] bg-[var(--bg-subtle)] p-3.5 text-xs sm:grid-cols-5">
           <div>
             <p className="font-bold text-[var(--text-primary)]">1. Ruang Ide</p>
             <p className="mt-0.5 text-[var(--text-secondary)]">
-              Tulis ide liar bebas tanpa batas bidang/tema & diskusi via komentar.
+              Eksplorasi bebas sticky notes & gambar referensi.
             </p>
           </div>
           <div>
             <p className="font-bold text-[var(--text-primary)]">2. Bedah</p>
             <p className="mt-0.5 text-[var(--text-secondary)]">
-              Urai & drag-drop kartu ke 4 kolom: masalah, urgensi, user, dan kebutuhan inti.
+              Urai 4 pilar per ide → sintetis Akar Masalah.
             </p>
           </div>
           <div>
             <p className="font-bold text-[var(--text-primary)]">3. Mindmap</p>
             <p className="mt-0.5 text-[var(--text-secondary)]">
-              Petakan opsi solusi (tech/bisnis/sosial) dan indikator keterukuran.
+              Akar Masalah → Solusi → 3 Indikator Ukur per ide.
             </p>
           </div>
           <div>
             <p className="font-bold text-[var(--text-primary)]">4. Ide Matang</p>
             <p className="mt-0.5 text-[var(--text-secondary)]">
-              Sesuaikan ke track PKM apa saja, GEMASTIK, hackathon, atau startup + keberlanjutan.
+              Tarik otomatis ke blueprint & keberlanjutan per ide.
+            </p>
+          </div>
+          <div>
+            <p className="font-bold text-[var(--text-primary)]">5. Hasil</p>
+            <p className="mt-0.5 text-[var(--text-secondary)]">
+              Preview, bandingkan & pilih ide terbaik tim.
             </p>
           </div>
         </div>
@@ -96,24 +100,24 @@ export function InspirasiModal({
                 <button
                   type="button"
                   onClick={async () => {
-                    await onLoadToMindmap(opt);
+                    await onOpenOptionInStage(opt, 'mindmap');
                     onClose();
                   }}
                   className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg-surface)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]"
                 >
                   <GitBranch className="h-3.5 w-3.5" />
-                  <span>Buka Mindmap</span>
+                  <span>Buka Mindmap Ide Ini</span>
                 </button>
                 <button
                   type="button"
                   onClick={async () => {
-                    await onLoadToCanvas(opt);
+                    await onOpenOptionInStage(opt, 'canvas');
                     onClose();
                   }}
                   className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg-surface)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]"
                 >
                   <Layers className="h-3.5 w-3.5" />
-                  <span>Muat ke Ide Matang</span>
+                  <span>Buka Blueprint Ide Ini</span>
                 </button>
               </div>
             </article>
@@ -122,17 +126,17 @@ export function InspirasiModal({
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-3 text-xs">
           <span className="text-[var(--text-muted)]">
-            Ingin memulihkan kartu starter 3 opsi di Tab 2 (Bedah)?
+            Ingin memulihkan 3 ide pemantik lengkap (Bedah + Mindmap + Blueprint)?
           </span>
           <button
             type="button"
             onClick={async () => {
-              await onRestoreStarterCards();
+              await onRestoreStarterIdeas();
               onClose();
             }}
             className="rounded-full border border-[var(--border)] px-3 py-1 font-medium text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]"
           >
-            Pulihkan Starter Board
+            Pulihkan 3 Ide Pemantik
           </button>
         </div>
       </div>

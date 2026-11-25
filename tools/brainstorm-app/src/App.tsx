@@ -1,54 +1,63 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { DEFAULT_ROOM_ID, EMPTY_CANVAS } from './data/pkmStarterData';
+import { DEFAULT_ROOM_ID } from './data/pkmStarterData';
 import { isFirebaseConfigured } from './lib/firebase';
+import { synthesizeCanvasFromStages } from './lib/ideaSynthesis';
 import { useColorScheme } from './lib/theme';
 import {
   addBoardCard,
   addCardComment,
   addFreeNoteComment,
-  applyCanvasPreset,
+  attachStickyToIdea,
+  batchMutateFreeNotes,
   batchUpdateFreeNotePositions,
-  batchUpdateMindmapPositions,
+  batchUpdateIdeaCanvasFields,
+  batchUpdateIdeaMindmapPositions,
   broadcastCursor,
   createFreeNote,
+  createIdea,
   deleteBoardCard,
   deleteFreeNote,
   deleteFreeNoteComment,
-  deleteMindmapEdge,
-  deleteMindmapNode,
+  deleteIdea,
+  deleteIdeaMindmapEdge,
+  deleteIdeaMindmapNode,
   ensureRoomSeeded,
   joinRoomPresence,
-  loadOptionToMindmap,
   makeId,
   moveBoardCard,
   pickUserColor,
+  renameIdea,
+  restoreAllStarterIdeas,
   sanitizeRoomId,
-  saveMindmapEdge,
-  saveMindmapNode,
-  seedStarterCardsAgain,
-  setMindmapRootFromCard,
-  setMindmapRootFromFreeNote,
+  saveIdeaMindmapEdge,
+  saveIdeaMindmapNode,
+  setIdeaDecision,
   subscribeBoardCards,
-  subscribeCanvas,
   subscribeConnectionStatus,
   subscribeFreeNotesIncremental,
-  subscribeMindmapIncremental,
+  subscribeIdeas,
+  syncIdeaMindmapRootFromBedah,
   toggleCardVote,
   toggleFreeNoteVote,
+  toggleIdeaVote,
   updateBoardCard,
-  updateCanvasField,
   updateFreeNote,
-  updateMindmapNodeFields,
+  updateIdeaCanvasField,
+  updateIdeaMindmapNodeFields,
   updatePresenceTab,
+  upsertStarterOptionAsIdea,
 } from './lib/roomSync';
-import { downloadMarkdownFile, generateBrainstormMarkdown } from './lib/exportMarkdown';
+import {
+  downloadMarkdownFile,
+  generateBrainstormMarkdown,
+  generateSingleIdeaMarkdown,
+} from './lib/exportMarkdown';
 import type {
   BoardCard,
+  ColumnId,
   FreeStickyNote,
-  InnovationCanvasData,
-  MindmapEdgeRecord,
-  MindmapNodeRecord,
+  IdeaRecord,
   OnlineUser,
   StarterOption,
   TabId,
@@ -60,6 +69,7 @@ import { FreeCanvasTab } from './components/FreeCanvasTab';
 import { ProblemBoardTab } from './components/ProblemBoardTab';
 import { MindmapTab } from './components/MindmapTab';
 import { InnovationCanvasTab } from './components/InnovationCanvasTab';
+import { PreviewResultsTab } from './components/PreviewResultsTab';
 
 const STORAGE_NAME_KEY = 'pkm_ki_2027_user_name';
 const STORAGE_ROOM_KEY = 'pkm_ki_2027_room_id';
@@ -84,18 +94,13 @@ export default function App() {
   );
   const [inspirasiOpen, setInspirasiOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('free');
-  const [showCursors, setShowCursors] = useState(true);
 
   const [isConnected, setIsConnected] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [freeNotes, setFreeNotes] = useState<Record<string, FreeStickyNote>>({});
   const [cards, setCards] = useState<BoardCard[]>([]);
-  const [mindmapNodes, setMindmapNodes] = useState<Record<string, MindmapNodeRecord>>({});
-  const [mindmapEdges, setMindmapEdges] = useState<Record<string, MindmapEdgeRecord>>({});
-  const [canvas, setCanvas] = useState<InnovationCanvasData>({
-    ...EMPTY_CANVAS,
-    fieldMeta: {},
-  });
+  const [ideasMap, setIdeasMap] = useState<Record<string, IdeaRecord>>({});
+  const [activeIdeaId, setActiveIdeaId] = useState<string>('');
   const [dbError, setDbError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -107,6 +112,24 @@ export default function App() {
   });
 
   const userColor = pickUserColor(userName || 'Tim');
+
+  const ideaList = useMemo(
+    () => Object.values(ideasMap).toSorted((a, b) => a.createdAt - b.createdAt),
+    [ideasMap]
+  );
+
+  // Keep activeIdeaId valid whenever ideas load or an idea is deleted
+  useEffect(() => {
+    if (ideaList.length === 0) {
+      if (activeIdeaId) setActiveIdeaId('');
+      return;
+    }
+    if (!activeIdeaId || !ideasMap[activeIdeaId]) {
+      setActiveIdeaId(ideaList[0].id);
+    }
+  }, [ideaList, ideasMap, activeIdeaId]);
+
+  const activeIdea = (activeIdeaId && ideasMap[activeIdeaId]) || ideaList[0] || null;
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -123,15 +146,14 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  // Join room, seed once if empty, and subscribe using incremental listeners
-  // Note: Live cursors subscribe inside LiveCursorsLayer so 20Hz cursor motion NEVER re-renders App!
+  // Join room, seed/migrate once, and subscribe to real-time streams
   useEffect(() => {
     if (!userName || !roomId || !isFirebaseConfigured) return;
 
     setDbError(null);
     setFreeNotes({});
-    setMindmapNodes({});
-    setMindmapEdges({});
+    setIdeasMap({});
+    setCards([]);
 
     const handleErr = (err: Error) => {
       setDbError(err.message || 'Gagal menyambung ke Firebase Realtime Database.');
@@ -167,39 +189,24 @@ export default function App() {
     });
 
     const unsubCards = subscribeBoardCards(roomId, setCards, handleErr);
-
-    const unsubMindmap = subscribeMindmapIncremental(roomId, {
-      onNodeUpsert: (node) => {
-        setMindmapNodes((prev) => ({ ...prev, [node.id]: node }));
-      },
-      onNodeRemove: (nodeId) => {
-        setMindmapNodes((prev) => {
-          if (!(nodeId in prev)) return prev;
-          const next = { ...prev };
-          delete next[nodeId];
-          return next;
-        });
-      },
-      onEdgesChange: setMindmapEdges,
-      onError: handleErr,
-    });
-
-    const unsubCanvas = subscribeCanvas(roomId, setCanvas, handleErr);
+    const unsubIdeas = subscribeIdeas(roomId, setIdeasMap, handleErr);
 
     return () => {
       leavePresence();
       unsubFreeNotes();
       unsubCards();
-      unsubMindmap();
-      unsubCanvas();
+      unsubIdeas();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userName, roomId]);
 
   useEffect(() => {
     if (!userName || !roomId || !isFirebaseConfigured) return;
-    updatePresenceTab(roomId, sessionIdRef.current, activeTab).catch(() => {});
-  }, [activeTab, userName, roomId]);
+    updatePresenceTab(roomId, sessionIdRef.current, activeTab, {
+      name: userName,
+      color: userColor,
+    }).catch(() => {});
+  }, [activeTab, userName, userColor, roomId]);
 
   const sendCursorThrottled = useCallback(
     (space: 'flow' | 'page', x: number, y: number) => {
@@ -239,37 +246,80 @@ export default function App() {
     showToast(`Masuk room ${nextRoom} sebagai ${name}`);
   };
 
-  // Promote Free Sticky Note -> Tab 2 (Bedah)
-  const handlePromoteFreeNoteToBoard = async (note: FreeStickyNote) => {
-    const lines = note.text.split('\n').map((l) => l.trim()).filter(Boolean);
-    const title = (lines[0] || 'Ide dari Ruang Ide').slice(0, 120);
-    const content = lines.slice(1).join('\n') || note.text;
-    const groupName = note.tag || `Ide · ${note.author}`;
-
-    await addBoardCard(roomId, {
-      columnId: 'problem',
-      title,
-      content,
-      author: note.author || userName || 'Tim',
-      ideaGroup: groupName,
+  // Multi-Idea Handlers
+  const handleCreateNewIdea = async (name: string) => {
+    const created = await createIdea(roomId, {
+      name,
+      createdBy: userName || 'Tim',
     });
-    await updateFreeNote(roomId, note.id, { promotedToBoard: true });
+    setActiveIdeaId(created.id);
+    showToast(`Ide baru "${created.name}" dibuat!`);
+  };
+
+  const handleCreateIdeaFromSticky = async (
+    note: FreeStickyNote,
+    ideaName: string,
+    columnId: ColumnId
+  ) => {
+    const created = await createIdea(roomId, {
+      name: ideaName,
+      createdBy: userName || 'Tim',
+      sourceNote: note,
+      initialColumnId: columnId,
+    });
+    setActiveIdeaId(created.id);
     setActiveTab('board');
-    showToast('Ide dibawa ke Tab 2 (Bedah)!');
+    showToast(`Ide "${created.name}" dibuat dari Ruang Ide!`);
   };
 
-  const handlePromoteFreeNoteToMindmap = async (note: FreeStickyNote) => {
-    await setMindmapRootFromFreeNote(roomId, note, userName || 'Tim');
-    setActiveTab('mindmap');
-    showToast('Ide dijadikan Root Mindmap!');
+  const handleAttachStickyToIdea = async (
+    note: FreeStickyNote,
+    targetIdeaId: string,
+    columnId: ColumnId
+  ) => {
+    const target = ideasMap[targetIdeaId];
+    if (!target) return;
+    await attachStickyToIdea(roomId, note, target, columnId, userName || 'Tim');
+    setActiveIdeaId(target.id);
+    setActiveTab('board');
+    showToast(`Ditambahkan ke bedahan "${target.name}"!`);
   };
 
-  const handleSetRootFromCard = async (card: BoardCard) => {
-    await setMindmapRootFromCard(roomId, card, userName || 'Tim');
-    setActiveTab('mindmap');
-    showToast(`"${card.title}" dijadikan Root Mindmap`);
+  const handleRenameIdea = async (ideaId: string, nextName: string) => {
+    await renameIdea(roomId, ideaId, nextName, cards);
+    showToast(`Nama ide diubah menjadi "${nextName}"`);
   };
 
+  const handleDeleteIdea = async (ideaId: string) => {
+    const target = ideasMap[ideaId];
+    await deleteIdea(roomId, ideaId, cards);
+    showToast(`Ide "${target?.name ?? ''}" dihapus`);
+  };
+
+  // Stage 2 (Bedah 4 Pilar) -> Stage 3 (Mindmap Root)
+  const handleSyncBedahToMindmap = async (idea: IdeaRecord, navigate = false) => {
+    await syncIdeaMindmapRootFromBedah(roomId, idea, cards, userName || 'Tim');
+    setActiveIdeaId(idea.id);
+    if (navigate) setActiveTab('mindmap');
+    showToast(`Root Mindmap "${idea.name}" disinkronkan dari 4 Pilar Bedah!`);
+  };
+
+  // Stage 2 + Stage 3 (Bedah + Mindmap) -> Stage 4 (Blueprint Ide Matang)
+  const handleSyncStagesToCanvas = async (idea: IdeaRecord, navigate = false) => {
+    const { derivedFields } = synthesizeCanvasFromStages(idea, cards);
+    const patch = {
+      ...derivedFields,
+      ...(idea.canvas.maturityStage === 'bibit'
+        ? { maturityStage: 'dibedah' as const }
+        : {}),
+    };
+    await batchUpdateIdeaCanvasFields(roomId, idea.id, patch, userName || 'Tim');
+    setActiveIdeaId(idea.id);
+    if (navigate) setActiveTab('canvas');
+    showToast(`Blueprint "${idea.name}" diperbarui dari Bedah & Mindmap!`);
+  };
+
+  // Inspirasi Starter Helpers
   const handleDropOptionToFreeCanvas = async (opt: StarterOption) => {
     await createFreeNote(roomId, {
       kind: 'sticky',
@@ -285,70 +335,46 @@ export default function App() {
     showToast(`${opt.shortLabel} ditempel ke Ruang Ide`);
   };
 
-  const handleLoadOptionToMindmap = async (option: StarterOption) => {
-    await loadOptionToMindmap(roomId, option, userName || 'Tim');
-    setActiveTab('mindmap');
-    showToast(`Mindmap ${option.shortLabel} dimuat`);
+  const handleOpenOptionInStage = async (
+    opt: StarterOption,
+    stage: 'mindmap' | 'canvas'
+  ) => {
+    if (!ideasMap[opt.id]) {
+      await upsertStarterOptionAsIdea(roomId, opt, userName || 'Tim');
+    }
+    setActiveIdeaId(opt.id);
+    setActiveTab(stage);
+    showToast(`Membuka "${opt.shortLabel}"`);
   };
 
-  const handleLoadOptionToCanvas = async (option: StarterOption) => {
-    await applyCanvasPreset(roomId, option.canvasPreset, userName || 'Tim');
-    setActiveTab('canvas');
-    showToast(`Blueprint ${option.shortLabel} dimuat ke Ide Matang`);
-  };
-
-  const handleSyncMindmapToCanvas = async () => {
-    const allNodes = Object.values(mindmapNodes);
-    const root = allNodes.find((n) => n.kind === 'root');
-    const sols = allNodes.filter((n) => n.kind === 'solution');
-    const realitas = allNodes.filter((n) => n.kind === 'indicator' && n.tag === 'Realitas');
-    const teknis = allNodes.filter((n) => n.kind === 'indicator' && n.tag === 'Teknis');
-    const teori = allNodes.filter((n) => n.kind === 'indicator' && n.tag === 'Teori');
-
-    const formatList = (list: MindmapNodeRecord[]) =>
-      list
-        .map((n) => `- ${n.title}${n.tag ? ` [${n.tag}]` : ''}: ${n.detail}`)
-        .join('\n');
-
-    if (root) {
-      await updateCanvasField(
-        roomId,
-        'problemUrgensi',
-        `${root.title}\n${root.detail}`,
-        userName || 'Tim'
-      );
-    }
-    if (sols.length) {
-      await updateCanvasField(roomId, 'solusiNilaiInovasi', formatList(sols), userName || 'Tim');
-    }
-    if (realitas.length) {
-      await updateCanvasField(roomId, 'indikatorRealitas', formatList(realitas), userName || 'Tim');
-    }
-    if (teknis.length) {
-      await updateCanvasField(roomId, 'parameterTeknis', formatList(teknis), userName || 'Tim');
-    }
-    if (teori.length) {
-      await updateCanvasField(roomId, 'landasanTeori', formatList(teori), userName || 'Tim');
-    }
-    setActiveTab('canvas');
-    showToast('Peta Mindmap dikirim ke Tab 4 (Ide Matang)');
-  };
-
-  const handleExportMarkdown = () => {
+  const handleExportAllMarkdown = () => {
     const md = generateBrainstormMarkdown({
       roomId,
       exportedBy: userName || 'Tim',
       onlineUsers,
       freeNotes,
       cards,
-      mindmapNodes,
-      mindmapEdges,
-      canvas,
+      ideas: ideasMap,
     });
     const dateStamp = new Date().toISOString().slice(0, 10);
-    const filename = `brainstorming-${roomId}-${dateStamp}.md`;
+    const filename = `portfolio-ide-${roomId}-${dateStamp}.md`;
     downloadMarkdownFile(filename, md);
     showToast(`File ${filename} berhasil diunduh!`);
+  };
+
+  const handleExportSingleIdea = (idea: IdeaRecord) => {
+    const md = generateSingleIdeaMarkdown({
+      roomId,
+      exportedBy: userName || 'Tim',
+      idea,
+      cards,
+      freeNotes,
+    });
+    const slug = sanitizeRoomId(idea.name).slice(0, 40);
+    const dateStamp = new Date().toISOString().slice(0, 10);
+    const filename = `ide-${slug}-${dateStamp}.md`;
+    downloadMarkdownFile(filename, md);
+    showToast(`One-pager "${idea.name}" berhasil diunduh!`);
   };
 
   return (
@@ -357,13 +383,14 @@ export default function App() {
         roomId={roomId}
         userName={userName}
         activeTab={activeTab}
+        ideaCount={ideaList.length}
         onSelectTab={setActiveTab}
         onlineUsers={onlineUsers}
         isConnected={isConnected}
         onToggleTheme={toggleScheme}
         onOpenJoinModal={() => setJoinModalOpen(true)}
         onOpenInspirasi={() => setInspirasiOpen(true)}
-        onExportMarkdown={handleExportMarkdown}
+        onExportMarkdown={handleExportAllMarkdown}
       />
 
       {(!isFirebaseConfigured || dbError) && (
@@ -380,16 +407,16 @@ export default function App() {
       )}
 
       <main>
-        {/* Tab 1: Free Brainstorming Canvas (FigJam-style 60fps real-time streaming) */}
+        {/* Tab 1: Free Brainstorming Canvas (FigJam-style QoL + Visual Reference Images) */}
         <div role="tabpanel" aria-labelledby="tab-free" hidden={activeTab !== 'free'}>
           {activeTab === 'free' && (
             <FreeCanvasTab
               roomId={roomId}
               sessionId={sessionIdRef.current}
               notesMap={freeNotes}
+              ideas={ideaList}
               userName={userName || 'Anonim'}
-              showCursors={showCursors}
-              onToggleShowCursors={() => setShowCursors((v) => !v)}
+              userColor={userColor}
               onFlowPointerMove={(x, y) => sendCursorThrottled('flow', x, y)}
               onCreateNote={(payload) =>
                 createFreeNote(roomId, {
@@ -400,6 +427,7 @@ export default function App() {
               }
               onUpdateNote={(noteId, patch) => updateFreeNote(roomId, noteId, patch)}
               onBatchPositions={(positions) => batchUpdateFreeNotePositions(roomId, positions)}
+              onBatchMutate={(ops) => batchMutateFreeNotes(roomId, ops)}
               onDeleteNote={(noteId) => deleteFreeNote(roomId, noteId)}
               onToggleVote={(noteId, currentlyVoted) =>
                 toggleFreeNoteVote(roomId, noteId, userName || 'Anonim', currentlyVoted)
@@ -410,21 +438,32 @@ export default function App() {
               onDeleteComment={(noteId, commentId) =>
                 deleteFreeNoteComment(roomId, noteId, commentId)
               }
-              onPromoteToBoard={handlePromoteFreeNoteToBoard}
-              onPromoteToMindmap={handlePromoteFreeNoteToMindmap}
+              onCreateIdeaFromSticky={handleCreateIdeaFromSticky}
+              onAttachStickyToIdea={handleAttachStickyToIdea}
+              onJumpToIdeaInBoard={(ideaId) => {
+                setActiveIdeaId(ideaId);
+                setActiveTab('board');
+              }}
+              onNotify={showToast}
             />
           )}
         </div>
 
-        {/* Tab 2: Trello-Style Drag & Drop Kanban Board */}
+        {/* Tab 2: Per-Idea 4-Pillar Trello Kanban & Problem Synthesis */}
         <div role="tabpanel" aria-labelledby="tab-board" hidden={activeTab !== 'board'}>
           {activeTab === 'board' && (
             <ProblemBoardTab
               roomId={roomId}
               sessionId={sessionIdRef.current}
+              ideas={ideaList}
+              activeIdea={activeIdea}
+              freeNotes={freeNotes}
               cards={cards}
               userName={userName || 'Anonim'}
-              showCursors={showCursors}
+              onSelectIdea={setActiveIdeaId}
+              onCreateIdea={handleCreateNewIdea}
+              onRenameIdea={handleRenameIdea}
+              onDeleteIdea={handleDeleteIdea}
               onPagePointerMove={(xPct, yPct) => sendCursorThrottled('page', xPct, yPct)}
               onAddCard={async (payload) => {
                 await addBoardCard(roomId, { ...payload, author: userName || 'Anonim' });
@@ -444,48 +483,100 @@ export default function App() {
               onAddComment={(cardId, text) =>
                 addCardComment(roomId, cardId, userName || 'Anonim', userColor, text)
               }
-              onSetRootMindmap={handleSetRootFromCard}
+              onSyncBedahToMindmapAndGo={(idea) => handleSyncBedahToMindmap(idea, true)}
             />
           )}
         </div>
 
-        {/* Tab 3: Interactive Mindmap (Real-Height Tree Layout + 60fps Live Drag) */}
+        {/* Tab 3: Per-Idea Interactive Mindmap (Root synced from 4 Pillars -> Solutions -> 3 Indicators) */}
         <div role="tabpanel" aria-labelledby="tab-mindmap" hidden={activeTab !== 'mindmap'}>
           {activeTab === 'mindmap' && (
             <MindmapTab
               roomId={roomId}
               sessionId={sessionIdRef.current}
-              nodesMap={mindmapNodes}
-              edgesMap={mindmapEdges}
+              ideas={ideaList}
+              activeIdea={activeIdea}
+              cards={cards}
+              freeNotes={freeNotes}
               userName={userName || 'Anonim'}
-              showCursors={showCursors}
-              onToggleShowCursors={() => setShowCursors((v) => !v)}
+              onSelectIdea={setActiveIdeaId}
+              onCreateIdea={handleCreateNewIdea}
+              onRenameIdea={handleRenameIdea}
+              onDeleteIdea={handleDeleteIdea}
               onFlowPointerMove={(x, y) => sendCursorThrottled('flow', x, y)}
-              onSaveNode={(node) => saveMindmapNode(roomId, node)}
-              onUpdateNodeFields={(nodeId, patch) =>
-                updateMindmapNodeFields(roomId, nodeId, patch)
+              onSaveNode={(ideaId, node) => saveIdeaMindmapNode(roomId, ideaId, node)}
+              onUpdateNodeFields={(ideaId, nodeId, patch) =>
+                updateIdeaMindmapNodeFields(roomId, ideaId, nodeId, patch)
               }
-              onBatchPositions={(positions) => batchUpdateMindmapPositions(roomId, positions)}
-              onDeleteNode={(nodeId) => deleteMindmapNode(roomId, nodeId, mindmapEdges)}
-              onSaveEdge={(edge) => saveMindmapEdge(roomId, edge)}
-              onDeleteEdge={(edgeId) => deleteMindmapEdge(roomId, edgeId)}
-              onSyncMindmapToCanvas={handleSyncMindmapToCanvas}
+              onBatchPositions={(ideaId, positions) =>
+                batchUpdateIdeaMindmapPositions(roomId, ideaId, positions)
+              }
+              onDeleteNode={(ideaId, nodeId) =>
+                deleteIdeaMindmapNode(
+                  roomId,
+                  ideaId,
+                  nodeId,
+                  ideasMap[ideaId]?.mindmap?.edges ?? {}
+                )
+              }
+              onSaveEdge={(ideaId, edge) => saveIdeaMindmapEdge(roomId, ideaId, edge)}
+              onDeleteEdge={(ideaId, edgeId) =>
+                deleteIdeaMindmapEdge(roomId, ideaId, edgeId)
+              }
+              onSyncRootFromBedah={(idea) => handleSyncBedahToMindmap(idea, false)}
+              onSyncMindmapToCanvasAndGo={(idea) => handleSyncStagesToCanvas(idea, true)}
             />
           )}
         </div>
 
-        {/* Tab 4: Universal Ide Matang & Keberlanjutan Canvas */}
+        {/* Tab 4: Per-Idea Mature Blueprint & Sustainability Canvas */}
         <div role="tabpanel" aria-labelledby="tab-canvas" hidden={activeTab !== 'canvas'}>
           {activeTab === 'canvas' && (
             <InnovationCanvasTab
               roomId={roomId}
               sessionId={sessionIdRef.current}
-              canvas={canvas}
-              showCursors={showCursors}
+              ideas={ideaList}
+              activeIdea={activeIdea}
+              cards={cards}
+              freeNotes={freeNotes}
+              onSelectIdea={setActiveIdeaId}
+              onCreateIdea={handleCreateNewIdea}
+              onRenameIdea={handleRenameIdea}
+              onDeleteIdea={handleDeleteIdea}
               onPagePointerMove={(xPct, yPct) => sendCursorThrottled('page', xPct, yPct)}
-              onUpdateField={(field, value) =>
-                updateCanvasField(roomId, field, value, userName || 'Anonim')
+              onUpdateField={(ideaId, field, value) =>
+                updateIdeaCanvasField(roomId, ideaId, field, value, userName || 'Anonim')
               }
+              onSyncAllFromStages={(idea) => handleSyncStagesToCanvas(idea, false)}
+              onGoToPreview={() => setActiveTab('preview')}
+            />
+          )}
+        </div>
+
+        {/* Tab 5: Multi-Idea Portfolio, Comparison Table & Executive One-Pager Preview */}
+        <div role="tabpanel" aria-labelledby="tab-preview" hidden={activeTab !== 'preview'}>
+          {activeTab === 'preview' && (
+            <PreviewResultsTab
+              roomId={roomId}
+              sessionId={sessionIdRef.current}
+              ideas={ideaList}
+              cards={cards}
+              freeNotes={freeNotes}
+              userName={userName || 'Anonim'}
+              onPagePointerMove={(xPct, yPct) => sendCursorThrottled('page', xPct, yPct)}
+              onCreateIdea={handleCreateNewIdea}
+              onToggleIdeaVote={(ideaId, currentlyVoted) =>
+                toggleIdeaVote(roomId, ideaId, userName || 'Anonim', currentlyVoted)
+              }
+              onChangeDecision={(ideaId, decision) =>
+                setIdeaDecision(roomId, ideaId, decision)
+              }
+              onJumpToStage={(ideaId, tab) => {
+                setActiveIdeaId(ideaId);
+                setActiveTab(tab);
+              }}
+              onExportSingleIdea={handleExportSingleIdea}
+              onExportAllMarkdown={handleExportAllMarkdown}
             />
           )}
         </div>
@@ -505,12 +596,11 @@ export default function App() {
         open={inspirasiOpen}
         onClose={() => setInspirasiOpen(false)}
         onDropToFreeCanvas={handleDropOptionToFreeCanvas}
-        onLoadToMindmap={handleLoadOptionToMindmap}
-        onLoadToCanvas={handleLoadOptionToCanvas}
-        onRestoreStarterCards={async () => {
-          await seedStarterCardsAgain(roomId);
-          setActiveTab('board');
-          showToast('Starter cards dipulihkan di Tab 2 (Bedah)');
+        onOpenOptionInStage={handleOpenOptionInStage}
+        onRestoreStarterIdeas={async () => {
+          await restoreAllStarterIdeas(roomId);
+          setActiveTab('preview');
+          showToast('3 Ide Pemantik lengkap dipulihkan!');
         }}
       />
 

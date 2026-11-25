@@ -2,6 +2,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type FormEvent,
@@ -26,13 +27,16 @@ import {
 } from '@xyflow/react';
 import {
   ArrowRight,
+  CheckCircle2,
+  Circle,
   Edit3,
   LayoutGrid,
-  MousePointer2,
   Plus,
+  RefreshCw,
   Trash2,
 } from 'lucide-react';
 import { SOLUTION_DOMAIN_TAGS } from '../data/pkmStarterData';
+import { synthesizeRootFromBedah, type BedahSynthesis } from '../lib/ideaSynthesis';
 import {
   broadcastLiveDrag,
   clearLiveDrag,
@@ -40,6 +44,9 @@ import {
   subscribeLiveDrags,
 } from '../lib/roomSync';
 import type {
+  BoardCard,
+  FreeStickyNote,
+  IdeaRecord,
   IndicatorPillar,
   MindmapEdgeRecord,
   MindmapNodeKind,
@@ -47,12 +54,14 @@ import type {
   SolutionDomainTag,
 } from '../types';
 import { CanvasToolbar } from './CanvasToolbar';
+import { IdeaSwitcherBar } from './IdeaSwitcherBar';
 import { FlowCursorsOverlay } from './LiveCursorsLayer';
 import { ModalDialog } from './ModalDialog';
 
 interface MindmapNodeActions {
   onEdit: (record: MindmapNodeRecord) => void;
   onDelete: (nodeId: string) => void;
+  onSyncRootFromBedah: () => void;
   onQuickAddChild: (
     parent: MindmapNodeRecord,
     childKind: 'solution' | 'indicator',
@@ -66,6 +75,13 @@ interface MindmapNodeActions {
 
 interface MindmapNodeFlowData extends Record<string, unknown> {
   record: MindmapNodeRecord;
+  bedahPillarFlags?: {
+    problem: boolean;
+    urgency: boolean;
+    targetUser: boolean;
+    needs: boolean;
+    filled: number;
+  };
   actionsRef: React.MutableRefObject<MindmapNodeActions>;
 }
 
@@ -85,7 +101,7 @@ const PkmMindmapNode = memo(function PkmMindmapNode({
   data,
   selected,
 }: NodeProps<PkmFlowNode>) {
-  const { record, actionsRef } = data;
+  const { record, bedahPillarFlags, actionsRef } = data;
   const isRoot = record.kind === 'root';
   const isSolution = record.kind === 'solution';
   const isIndicator = record.kind === 'indicator';
@@ -99,13 +115,11 @@ const PkmMindmapNode = memo(function PkmMindmapNode({
         borderTopColor: accentHex,
         boxShadow: selected ? 'var(--shadow-card-hover)' : 'var(--shadow-card)',
       }}
-      className={`group w-[300px] rounded-2xl border border-t-[3px] p-4 transition-shadow ${
+      className={`group w-[310px] rounded-2xl border border-t-[3px] p-4 transition-shadow ${
         selected ? 'ring-2 ring-[var(--accent)]/25' : ''
       }`}
     >
-      {!isRoot && (
-        <Handle type="target" position={Position.Left} />
-      )}
+      {!isRoot && <Handle type="target" position={Position.Left} />}
 
       {/* Sleek Single-Pill Header */}
       <div className="flex items-center justify-between gap-2">
@@ -121,13 +135,25 @@ const PkmMindmapNode = memo(function PkmMindmapNode({
             style={{ backgroundColor: accentHex }}
           />
           {isRoot
-            ? 'Akar Masalah'
+            ? `Akar Masalah (${bedahPillarFlags?.filled ?? 0}/4 Pilar)`
             : isSolution
             ? `Solusi · ${record.tag ?? 'Software'}`
             : `Indikator · ${record.tag ?? 'Realitas'}`}
         </span>
 
         <div className="nodrag flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+          {isRoot && (
+            <button
+              type="button"
+              onClick={() => actionsRef.current.onSyncRootFromBedah()}
+              title="Perbarui Akar Masalah dari 4 Pilar Bedah"
+              aria-label="Sinkronkan Akar Masalah dari Tab Bedah"
+              style={{ color: 'var(--accent)' }}
+              className="rounded-md p-1 transition hover:bg-[var(--bg-subtle)]"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => actionsRef.current.onEdit(record)}
@@ -151,9 +177,35 @@ const PkmMindmapNode = memo(function PkmMindmapNode({
         </div>
       </div>
 
+      {/* Explicit 4-Pillar Correlation Strip on Root Node */}
+      {isRoot && bedahPillarFlags && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {[
+            { ok: bedahPillarFlags.problem, label: 'Masalah' },
+            { ok: bedahPillarFlags.urgency, label: 'Urgensi' },
+            { ok: bedahPillarFlags.targetUser, label: 'User' },
+            { ok: bedahPillarFlags.needs, label: 'Kebutuhan' },
+          ].map((p) => (
+            <span
+              key={p.label}
+              className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${
+                p.ok ? 'text-emerald-500' : 'text-[var(--text-muted)]'
+              }`}
+            >
+              {p.ok ? (
+                <CheckCircle2 className="h-2.5 w-2.5" />
+              ) : (
+                <Circle className="h-2.5 w-2.5" />
+              )}
+              <span>{p.label}</span>
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Crisp Title & Description */}
       <h3
-        className="mt-2.5 text-[14px] font-bold leading-snug"
+        className="mt-2 text-[14px] font-bold leading-snug"
         style={{ color: 'var(--text-primary)' }}
       >
         {record.title}
@@ -167,7 +219,7 @@ const PkmMindmapNode = memo(function PkmMindmapNode({
         </p>
       )}
 
-      {/* Tag Switcher: ONLY visible when node is selected to keep canvas ultra-clean! */}
+      {/* Tag Switcher: ONLY visible when node is selected to keep canvas ultra-clean */}
       {selected && (isSolution || isIndicator) && (
         <div
           className="nodrag mt-3 flex flex-wrap gap-1 border-t pt-2.5"
@@ -204,7 +256,7 @@ const PkmMindmapNode = memo(function PkmMindmapNode({
           style={{ borderColor: 'var(--border)' }}
         >
           <span
-            className="max-w-[90px] truncate text-[10px]"
+            className="max-w-[95px] truncate text-[10px]"
             style={{ color: 'var(--text-muted)' }}
           >
             {record.author}
@@ -263,41 +315,56 @@ const nodeTypes = {
 function estimateMindmapHeight(rec: MindmapNodeRecord): number {
   const titleLines = Math.max(1, Math.ceil(rec.title.length / 30));
   const detailLines = rec.detail
-    ? Math.max(1, Math.ceil(rec.detail.length / 38))
+    ? rec.detail
+        .split('\n')
+        .reduce((acc, l) => acc + Math.max(1, Math.ceil(l.length / 36)), 0)
     : 0;
-  const footerHeight = rec.kind === 'indicator' ? 18 : 42;
-  return 74 + titleLines * 20 + detailLines * 18 + footerHeight;
+  const footerHeight = rec.kind === 'indicator' ? 18 : 48;
+  return 86 + titleLines * 20 + detailLines * 18 + footerHeight;
 }
 
 interface MindmapCanvasInnerProps {
   roomId: string;
   sessionId: string;
-  nodesMap: Record<string, MindmapNodeRecord>;
-  edgesMap: Record<string, MindmapEdgeRecord>;
+  ideas: IdeaRecord[];
+  activeIdea: IdeaRecord | null;
+  cards: BoardCard[];
+  freeNotes: Record<string, FreeStickyNote>;
   userName: string;
-  showCursors: boolean;
-  onToggleShowCursors: () => void;
+  onSelectIdea: (ideaId: string) => void;
+  onCreateIdea: (name: string) => Promise<void>;
+  onRenameIdea: (ideaId: string, nextName: string) => Promise<void>;
+  onDeleteIdea: (ideaId: string) => Promise<void>;
   onFlowPointerMove: (x: number, y: number) => void;
-  onSaveNode: (node: MindmapNodeRecord) => Promise<void>;
+  onSaveNode: (ideaId: string, node: MindmapNodeRecord) => Promise<void>;
   onUpdateNodeFields: (
+    ideaId: string,
     nodeId: string,
     patch: Partial<MindmapNodeRecord>
   ) => Promise<void>;
-  onBatchPositions: (positions: Array<{ id: string; x: number; y: number }>) => Promise<void>;
-  onDeleteNode: (nodeId: string) => Promise<void>;
-  onSaveEdge: (edge: MindmapEdgeRecord) => Promise<void>;
-  onDeleteEdge: (edgeId: string) => Promise<void>;
-  onSyncMindmapToCanvas: () => Promise<void>;
+  onBatchPositions: (
+    ideaId: string,
+    positions: Array<{ id: string; x: number; y: number }>
+  ) => Promise<void>;
+  onDeleteNode: (ideaId: string, nodeId: string) => Promise<void>;
+  onSaveEdge: (ideaId: string, edge: MindmapEdgeRecord) => Promise<void>;
+  onDeleteEdge: (ideaId: string, edgeId: string) => Promise<void>;
+  onSyncRootFromBedah: (idea: IdeaRecord) => Promise<void>;
+  onSyncMindmapToCanvasAndGo: (idea: IdeaRecord) => Promise<void>;
 }
 
 function MindmapCanvasInner({
   roomId,
   sessionId,
-  nodesMap,
-  edgesMap,
+  ideas,
+  activeIdea,
+  cards,
+  freeNotes,
   userName,
-  showCursors,
-  onToggleShowCursors,
+  onSelectIdea,
+  onCreateIdea,
+  onRenameIdea,
+  onDeleteIdea,
   onFlowPointerMove,
   onSaveNode,
   onUpdateNodeFields,
@@ -305,7 +372,8 @@ function MindmapCanvasInner({
   onDeleteNode,
   onSaveEdge,
   onDeleteEdge,
-  onSyncMindmapToCanvas,
+  onSyncRootFromBedah,
+  onSyncMindmapToCanvasAndGo,
 }: MindmapCanvasInnerProps) {
   const { fitView, screenToFlowPosition, getNodes } = useReactFlow();
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState<PkmFlowNode>([]);
@@ -317,10 +385,44 @@ function MindmapCanvasInner({
   const [editKind, setEditKind] = useState<MindmapNodeKind>('solution');
   const [editTag, setEditTag] = useState<SolutionDomainTag | IndicatorPillar>('Software');
 
-  // Optimistic local drag lock & 40ms streaming refs
   const draggingIdsRef = useRef<Set<string>>(new Set());
   const localDropLockRef = useRef<Map<string, number>>(new Map());
   const lastDragBroadcastRef = useRef<number>(0);
+
+  const activeIdeaId = activeIdea?.id ?? '';
+  const nodesMap = activeIdea?.mindmap?.nodes ?? {};
+  const edgesMap = activeIdea?.mindmap?.edges ?? {};
+  const liveDragChannel = activeIdeaId ? `mindmap_${activeIdeaId}` : 'mindmap';
+
+  const bedahSynth: BedahSynthesis | null = useMemo(
+    () => (activeIdea ? synthesizeRootFromBedah(activeIdea, cards) : null),
+    [activeIdea, cards]
+  );
+
+  const bedahPillarFlags = useMemo(
+    () =>
+      bedahSynth
+        ? {
+            problem: bedahSynth.hasProblem,
+            urgency: bedahSynth.hasUrgency,
+            targetUser: bedahSynth.hasTargetUser,
+            needs: bedahSynth.hasNeeds,
+            filled: bedahSynth.filledPillars,
+          }
+        : undefined,
+    [bedahSynth]
+  );
+
+  // Smoothly refit view whenever switching to another Idea's Mindmap
+  useEffect(() => {
+    draggingIdsRef.current.clear();
+    localDropLockRef.current.clear();
+    setEditingNode(null);
+    const t = window.setTimeout(() => {
+      fitView({ padding: 0.2, duration: 260 });
+    }, 90);
+    return () => window.clearTimeout(t);
+  }, [activeIdeaId, fitView]);
 
   const handleOpenEdit = useCallback((record: MindmapNodeRecord) => {
     setEditingNode(record);
@@ -335,6 +437,7 @@ function MindmapCanvasInner({
   const actionsRef = useRef<MindmapNodeActions>({
     onEdit: () => {},
     onDelete: () => {},
+    onSyncRootFromBedah: () => {},
     onQuickAddChild: () => {},
     onQuickChangeTag: () => {},
   });
@@ -342,18 +445,24 @@ function MindmapCanvasInner({
   actionsRef.current = {
     onEdit: handleOpenEdit,
     onDelete: (nodeId) => {
-      onDeleteNode(nodeId).catch(() => {});
+      if (!activeIdeaId) return;
+      onDeleteNode(activeIdeaId, nodeId).catch(() => {});
+    },
+    onSyncRootFromBedah: () => {
+      if (!activeIdea) return;
+      onSyncRootFromBedah(activeIdea).catch(() => {});
     },
     onQuickChangeTag: (nodeId, tag) => {
-      onUpdateNodeFields(nodeId, { tag }).catch(() => {});
+      if (!activeIdeaId) return;
+      onUpdateNodeFields(activeIdeaId, nodeId, { tag }).catch(() => {});
     },
     onQuickAddChild: async (parent, childKind, presetTag) => {
+      if (!activeIdeaId) return;
       const siblingIds = Object.values(edgesMap)
         .filter((e) => e.source === parent.id)
         .map((e) => e.target)
         .filter((id) => Boolean(nodesMap[id]));
 
-      // Place cleanly below the lowest existing sibling (no overlap!)
       const renderedById = new Map(getNodes().map((n) => [n.id, n]));
       let nextY = parent.y;
       if (siblingIds.length > 0) {
@@ -381,7 +490,7 @@ function MindmapCanvasInner({
             : 'Tuliskan parameter ukur atau referensi pendukung.',
         tag: presetTag ?? (childKind === 'solution' ? 'Software' : 'Realitas'),
         author: userName,
-        x: parent.x + 440,
+        x: parent.x + 450,
         y: Math.round(nextY),
         updatedAt: Date.now(),
       };
@@ -391,16 +500,16 @@ function MindmapCanvasInner({
         target: newId,
         label: childKind === 'solution' ? 'Solusi' : String(presetTag ?? 'Ukur'),
       };
-      await onSaveNode(newNode);
-      await onSaveEdge(newEdge);
+      await onSaveNode(activeIdeaId, newNode);
+      await onSaveEdge(activeIdeaId, newEdge);
       handleOpenEdit(newNode);
     },
   };
 
-  // Subscribe to ~45B remote live drag coordinates!
+  // Subscribe to per-idea remote live drag coordinates
   useEffect(() => {
-    if (!roomId) return;
-    return subscribeLiveDrags(roomId, 'mindmap', sessionId, (pos) => {
+    if (!roomId || !activeIdeaId) return;
+    return subscribeLiveDrags(roomId, liveDragChannel, sessionId, (pos) => {
       if (draggingIdsRef.current.has(pos.id)) return;
       const dropLock = localDropLockRef.current.get(pos.id);
       if (dropLock && Date.now() - dropLock < 450) return;
@@ -416,9 +525,9 @@ function MindmapCanvasInner({
         return changed ? next : prev;
       });
     });
-  }, [roomId, sessionId, setRfNodes]);
+  }, [roomId, activeIdeaId, liveDragChannel, sessionId, setRfNodes]);
 
-  // Smart diff-merge persistent nodesMap -> React Flow
+  // Smart diff-merge active Idea's mindmap -> React Flow
   useEffect(() => {
     const now = Date.now();
     setRfNodes((prev) => {
@@ -434,9 +543,12 @@ function MindmapCanvasInner({
             ? existing.position
             : { x: rec.x ?? 40, y: rec.y ?? 120 };
 
+        const flags = rec.kind === 'root' ? bedahPillarFlags : undefined;
+
         if (
           existing &&
           existing.data.record === rec &&
+          existing.data.bedahPillarFlags === flags &&
           existing.position.x === targetPos.x &&
           existing.position.y === targetPos.y
         ) {
@@ -448,13 +560,12 @@ function MindmapCanvasInner({
           id: rec.id,
           type: 'pkmNode',
           position: targetPos,
-          data: { record: rec, actionsRef },
+          data: { record: rec, bedahPillarFlags: flags, actionsRef },
         };
       });
     });
-  }, [nodesMap, setRfNodes]);
+  }, [nodesMap, bedahPillarFlags, setRfNodes]);
 
-  // Curved Bezier edges with clean adaptive stroke
   useEffect(() => {
     const mappedEdges: Edge[] = Object.values(edgesMap)
       .filter((e) => nodesMap[e.source] && nodesMap[e.target])
@@ -479,10 +590,11 @@ function MindmapCanvasInner({
 
   const handleNodeDrag: OnNodeDrag<PkmFlowNode> = useCallback(
     (_e, node) => {
+      if (!activeIdeaId) return;
       const now = Date.now();
       if (now - lastDragBroadcastRef.current < 40) return;
       lastDragBroadcastRef.current = now;
-      broadcastLiveDrag(roomId, 'mindmap', {
+      broadcastLiveDrag(roomId, liveDragChannel, {
         id: node.id,
         x: Math.round(node.position.x),
         y: Math.round(node.position.y),
@@ -490,59 +602,58 @@ function MindmapCanvasInner({
         t: now,
       });
     },
-    [roomId, sessionId]
+    [roomId, activeIdeaId, liveDragChannel, sessionId]
   );
 
   const handleNodeDragStop: OnNodeDrag<PkmFlowNode> = useCallback(
     (_e, node) => {
+      if (!activeIdeaId) return;
       const x = Math.round(node.position.x);
       const y = Math.round(node.position.y);
       draggingIdsRef.current.delete(node.id);
       localDropLockRef.current.set(node.id, Date.now());
-      onUpdateNodeFields(node.id, { x, y }).catch(() => {});
-      clearLiveDrag(roomId, 'mindmap', node.id);
+      onUpdateNodeFields(activeIdeaId, node.id, { x, y }).catch(() => {});
+      clearLiveDrag(roomId, liveDragChannel, node.id);
     },
-    [roomId, onUpdateNodeFields]
+    [roomId, activeIdeaId, liveDragChannel, onUpdateNodeFields]
   );
 
   const handleConnect = useCallback(
     (connection: Connection) => {
-      if (!connection.source || !connection.target) return;
+      if (!activeIdeaId || !connection.source || !connection.target) return;
       const targetNode = nodesMap[connection.target];
       const edgeId = `edge-${connection.source}-${connection.target}`;
       const label =
         targetNode?.kind === 'solution' ? 'Solusi' : targetNode?.tag ?? '';
-      onSaveEdge({
+      onSaveEdge(activeIdeaId, {
         id: edgeId,
         source: connection.source,
         target: connection.target,
         label,
       }).catch(() => {});
     },
-    [nodesMap, onSaveEdge]
+    [activeIdeaId, nodesMap, onSaveEdge]
   );
 
   const handleEdgesDelete = useCallback(
     (deleted: Edge[]) => {
+      if (!activeIdeaId) return;
       deleted.forEach((e) => {
-        onDeleteEdge(e.id).catch(() => {});
+        onDeleteEdge(activeIdeaId, e.id).catch(() => {});
       });
     },
-    [onDeleteEdge]
+    [activeIdeaId, onDeleteEdge]
   );
 
-  /**
-   * True hierarchical real-height tree layout:
-   * Measures actual rendered node heights from React Flow, allocates exact subtree vertical space
-   * with 44px gaps and 140px horizontal breathing room -> GUARANTEED ZERO OVERLAP!
-   */
+  // Real-height hierarchical tree layout (zero overlap)
   const handleAutoLayout = async () => {
+    if (!activeIdeaId) return;
     const rendered = getNodes();
     const dims = new Map<string, { w: number; h: number }>();
     rendered.forEach((n) => {
       const rec = nodesMap[n.id];
       dims.set(n.id, {
-        w: n.measured?.width ?? 300,
+        w: n.measured?.width ?? 310,
         h: n.measured?.height ?? (rec ? estimateMindmapHeight(rec) : 200),
       });
     });
@@ -550,7 +661,7 @@ function MindmapCanvasInner({
     const getH = (id: string) =>
       dims.get(id)?.h ??
       (nodesMap[id] ? estimateMindmapHeight(nodesMap[id]) : 200);
-    const getW = (id: string) => dims.get(id)?.w ?? 300;
+    const getW = (id: string) => dims.get(id)?.w ?? 310;
 
     const childrenMap = new Map<string, string[]>();
     const hasParent = new Set<string>();
@@ -612,16 +723,14 @@ function MindmapCanvasInner({
       });
     };
 
-    // Start from roots first, then any unattached nodes
     const allIds = Object.keys(nodesMap);
-    const rootCandidates = allIds.filter(
-      (id) => nodesMap[id].kind === 'root' || !hasParent.has(id)
-    );
-    rootCandidates.sort((a, b) => {
-      if (nodesMap[a].kind === 'root' && nodesMap[b].kind !== 'root') return -1;
-      if (nodesMap[b].kind === 'root' && nodesMap[a].kind !== 'root') return 1;
-      return (nodesMap[a].y ?? 0) - (nodesMap[b].y ?? 0);
-    });
+    const rootCandidates = allIds
+      .filter((id) => nodesMap[id].kind === 'root' || !hasParent.has(id))
+      .toSorted((a, b) => {
+        if (nodesMap[a].kind === 'root' && nodesMap[b].kind !== 'root') return -1;
+        if (nodesMap[b].kind === 'root' && nodesMap[a].kind !== 'root') return 1;
+        return (nodesMap[a].y ?? 0) - (nodesMap[b].y ?? 0);
+      });
 
     let globalY = 40;
     rootCandidates.forEach((rid) => {
@@ -631,7 +740,6 @@ function MindmapCanvasInner({
       globalY += span + GAP_Y * 1.6;
     });
 
-    // Catch any cyclic/orphan nodes just in case
     allIds.forEach((id) => {
       if (placed.has(id)) return;
       const h = getH(id);
@@ -639,11 +747,12 @@ function MindmapCanvasInner({
       globalY += h + GAP_Y;
     });
 
-    await onBatchPositions(positions);
+    await onBatchPositions(activeIdeaId, positions);
     setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 100);
   };
 
   const handleAddStandaloneNode = async (kind: 'solution' | 'indicator') => {
+    if (!activeIdeaId) return;
     const rootNode = Object.values(nodesMap).find((n) => n.kind === 'root');
     if (kind === 'solution' && rootNode) {
       await actionsRef.current.onQuickAddChild(rootNode, 'solution', 'Software');
@@ -667,14 +776,14 @@ function MindmapCanvasInner({
       y: 100 + Object.keys(nodesMap).length * 60,
       updatedAt: Date.now(),
     };
-    await onSaveNode(newNode);
+    await onSaveNode(activeIdeaId, newNode);
     handleOpenEdit(newNode);
   };
 
   const handleSaveEdit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!editingNode || !editTitle.trim()) return;
-    await onUpdateNodeFields(editingNode.id, {
+    if (!activeIdeaId || !editingNode || !editTitle.trim()) return;
+    await onUpdateNodeFields(activeIdeaId, editingNode.id, {
       title: editTitle.trim(),
       detail: editDetail.trim(),
       kind: editingNode.kind === 'root' ? 'root' : editKind,
@@ -692,126 +801,153 @@ function MindmapCanvasInner({
   );
 
   return (
-    <div
-      id="mindmap-canvas-region"
-      onPointerMove={handlePointerMove}
-      style={{ backgroundColor: 'var(--bg-canvas)' }}
-      className="relative h-[calc(100dvh-57px)] min-h-[560px] w-full overflow-hidden"
-    >
-      <ReactFlow
-        nodes={rfNodes}
-        edges={rfEdges}
-        nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onNodeDragStart={handleNodeDragStart}
-        onNodeDrag={handleNodeDrag}
-        onNodeDragStop={handleNodeDragStop}
-        onConnect={handleConnect}
-        onEdgesDelete={handleEdgesDelete}
-        fitView
-        fitViewOptions={{ padding: 0.2 }}
-        minZoom={0.35}
-        maxZoom={1.6}
-        deleteKeyCode={['Backspace', 'Delete']}
-      >
-        <Background color="var(--dot-grid)" gap={24} size={1.3} />
-        <Controls showInteractive={false} position="bottom-left" />
-        <MiniMap
-          nodeColor={(n) => {
-            const rec = (n.data as MindmapNodeFlowData | undefined)?.record;
-            return rec ? getNodeAccentHex(rec) : '#64748b';
-          }}
-          maskColor="rgb(128 128 128 / 0.14)"
-        />
-        <FlowCursorsOverlay
-          roomId={roomId}
-          mySessionId={sessionId}
-          tab="mindmap"
-          visible={showCursors}
-        />
-      </ReactFlow>
+    <div className="flex h-[calc(100dvh-57px)] min-h-[580px] flex-col">
+      <IdeaSwitcherBar
+        ideas={ideas}
+        activeIdeaId={activeIdeaId}
+        cards={cards}
+        freeNotes={freeNotes}
+        onSelectIdea={onSelectIdea}
+        onCreateIdea={onCreateIdea}
+        onRenameIdea={onRenameIdea}
+        onDeleteIdea={onDeleteIdea}
+        stageHint="Tahap 3: Akar Masalah (4 Pilar) → Opsi Solusi → 3 Keterukuran"
+        nextCta={
+          activeIdea
+            ? {
+                label: 'Matangkan Ide Ini',
+                onClick: () => {
+                  onSyncMindmapToCanvasAndGo(activeIdea).catch(() => {});
+                },
+              }
+            : undefined
+        }
+      />
 
-      {/* Quiet Floating Tip */}
       <div
-        style={{
-          backgroundColor: 'var(--bg-glass)',
-          borderColor: 'var(--border)',
-          color: 'var(--text-muted)',
-        }}
-        className="pointer-events-none absolute left-4 top-3 hidden items-center rounded-full border px-3 py-1 text-[11px] backdrop-blur sm:inline-flex"
+        id="mindmap-canvas-region"
+        onPointerMove={handlePointerMove}
+        style={{ backgroundColor: 'var(--bg-canvas)' }}
+        className="relative flex-1 overflow-hidden"
       >
-        Klik node untuk ganti tag domain/pilar • Tarik titik kanan ke kiri node lain untuk menghubungkan
-      </div>
+        <ReactFlow
+          nodes={rfNodes}
+          edges={rfEdges}
+          nodeTypes={nodeTypes}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onNodeDragStart={handleNodeDragStart}
+          onNodeDrag={handleNodeDrag}
+          onNodeDragStop={handleNodeDragStop}
+          onConnect={handleConnect}
+          onEdgesDelete={handleEdgesDelete}
+          fitView
+          fitViewOptions={{ padding: 0.2 }}
+          minZoom={0.35}
+          maxZoom={1.6}
+          deleteKeyCode={['Backspace', 'Delete']}
+        >
+          <Background color="var(--dot-grid)" gap={24} size={1.3} />
+          <Controls showInteractive={false} position="bottom-left" />
+          <MiniMap
+            nodeColor={(n) => {
+              const rec = (n.data as MindmapNodeFlowData | undefined)?.record;
+              return rec ? getNodeAccentHex(rec) : '#64748b';
+            }}
+            maskColor="rgb(128 128 128 / 0.14)"
+          />
+          <FlowCursorsOverlay
+            roomId={roomId}
+            mySessionId={sessionId}
+            tab="mindmap"
+            visible
+          />
+        </ReactFlow>
 
-      {/* Floating Bottom Toolbar */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-5 z-20 flex justify-center px-3">
-        <div className="pointer-events-auto">
-          <CanvasToolbar
-            ariaLabel="Alat Kanvas Mindmap"
-            ariaControls="mindmap-canvas-region"
-          >
-            <div role="group" aria-label="Tambah node" className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => handleAddStandaloneNode('solution')}
-                style={{
-                  backgroundColor: 'var(--btn-solid-bg)',
-                  color: 'var(--btn-solid-fg)',
-                }}
-                className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold hover:opacity-90"
-              >
-                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>Solusi</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleAddStandaloneNode('indicator')}
-                className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-medium"
-              >
-                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>Indikator</span>
-              </button>
-            </div>
+        {/* Quiet Floating Tip */}
+        <div
+          style={{
+            backgroundColor: 'var(--bg-glass)',
+            borderColor: 'var(--border)',
+            color: 'var(--text-muted)',
+          }}
+          className="pointer-events-none absolute left-4 top-3 hidden items-center rounded-full border px-3 py-1 text-[11px] backdrop-blur sm:inline-flex"
+        >
+          Mindmap khusus "{activeIdea?.name ?? '-'}" • Klik node untuk ganti tag • Ganti ide di bar atas tanpa saling timpa
+        </div>
 
-            <span role="separator" aria-orientation="vertical" />
-
-            <div role="group" aria-label="Pengaturan kanvas" className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={handleAutoLayout}
-                title="Rapikan pohon mindmap (auto-ukur tinggi, anti-overlap)"
-                className="inline-flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-medium"
-              >
-                <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
-                <span className="hidden sm:inline">Rapikan</span>
-              </button>
-
-              <button
-                type="button"
-                aria-pressed={showCursors}
-                aria-label="Tampilkan atau sembunyikan kursor tim"
-                title="Kursor live tim"
-                onClick={onToggleShowCursors}
-                className="inline-flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-medium"
-              >
-                <MousePointer2 className="h-3.5 w-3.5" aria-hidden="true" />
-                <span className="hidden md:inline">Kursor</span>
-              </button>
-            </div>
-
-            <span role="separator" aria-orientation="vertical" />
-
-            <button
-              type="button"
-              onClick={onSyncMindmapToCanvas}
-              style={{ color: 'var(--accent)' }}
-              className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold"
+        {/* Floating Bottom Toolbar */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-5 z-20 flex justify-center px-3">
+          <div className="pointer-events-auto">
+            <CanvasToolbar
+              ariaLabel="Alat Kanvas Mindmap"
+              ariaControls="mindmap-canvas-region"
             >
-              <span>Matangkan</span>
-              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
-          </CanvasToolbar>
+              <div role="group" aria-label="Tambah node" className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleAddStandaloneNode('solution')}
+                  style={{
+                    backgroundColor: 'var(--btn-solid-bg)',
+                    color: 'var(--btn-solid-fg)',
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold hover:opacity-90"
+                >
+                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>Solusi</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddStandaloneNode('indicator')}
+                  className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-medium"
+                >
+                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>Indikator</span>
+                </button>
+              </div>
+
+              <span role="separator" aria-orientation="vertical" />
+
+              <div role="group" aria-label="Sinkronisasi dan tata letak" className="flex items-center gap-1">
+                {activeIdea && (
+                  <button
+                    type="button"
+                    onClick={() => onSyncRootFromBedah(activeIdea)}
+                    title="Tarik ulang sintesis 4 pilar dari Tab 2 (Bedah) ke Root Mindmap"
+                    className="inline-flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-medium"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span className="hidden sm:inline">Sinkron 4 Pilar</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleAutoLayout}
+                  title="Rapikan pohon mindmap (auto-ukur tinggi, anti-overlap)"
+                  className="inline-flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-medium"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span className="hidden sm:inline">Rapikan</span>
+                </button>
+              </div>
+
+              {activeIdea && (
+                <>
+                  <span role="separator" aria-orientation="vertical" />
+                  <button
+                    type="button"
+                    onClick={() => onSyncMindmapToCanvasAndGo(activeIdea)}
+                    style={{ color: 'var(--accent)' }}
+                    className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold"
+                  >
+                    <span>Matangkan</span>
+                    <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                </>
+              )}
+            </CanvasToolbar>
+          </div>
         </div>
       </div>
 

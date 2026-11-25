@@ -3,6 +3,7 @@ import {
   Check,
   Copy,
   Download,
+  Eye,
   GitBranch,
   KanbanSquare,
   LayoutTemplate,
@@ -17,6 +18,7 @@ interface HeaderProps {
   roomId: string;
   userName: string;
   activeTab: TabId;
+  ideaCount: number;
   onSelectTab: (tab: TabId) => void;
   onlineUsers: OnlineUser[];
   isConnected: boolean;
@@ -31,6 +33,7 @@ const TABS: Array<{ id: TabId; step: string; label: string; icon: typeof StickyN
   { id: 'board', step: '2', label: 'Bedah', icon: KanbanSquare },
   { id: 'mindmap', step: '3', label: 'Mindmap', icon: GitBranch },
   { id: 'canvas', step: '4', label: 'Ide Matang', icon: LayoutTemplate },
+  { id: 'preview', step: '5', label: 'Hasil', icon: Eye },
 ];
 
 const TAB_NAMES: Record<TabId, string> = {
@@ -38,12 +41,14 @@ const TAB_NAMES: Record<TabId, string> = {
   board: 'Bedah',
   mindmap: 'Mindmap',
   canvas: 'Ide Matang',
+  preview: 'Hasil',
 };
 
 export function Header({
   roomId,
   userName,
   activeTab,
+  ideaCount,
   onSelectTab,
   onlineUsers,
   isConnected,
@@ -58,6 +63,7 @@ export function Header({
     board: null,
     mindmap: null,
     canvas: null,
+    preview: null,
   });
 
   const handleCopyInvite = async () => {
@@ -73,7 +79,7 @@ export function Header({
   };
 
   const handleTabKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    const order: TabId[] = ['free', 'board', 'mindmap', 'canvas'];
+    const order: TabId[] = ['free', 'board', 'mindmap', 'canvas', 'preview'];
     const idx = order.indexOf(activeTab);
     let nextIdx = idx;
 
@@ -124,13 +130,13 @@ export function Header({
           </button>
         </div>
 
-        {/* Center: Clean 4-Step Pipeline Tabs */}
+        {/* Center: Clean 5-Step Connected Pipeline Tabs */}
         <div
           role="tablist"
-          aria-label="Tahapan Pematangan Ide"
+          aria-label="Tahapan Perumusan Ide"
           onKeyDown={handleTabKeyDown}
           {...({ focusgroup: 'tablist nomemory' } as Record<string, string>)}
-          className="pkm-tablist order-3 w-full items-center gap-1 border-t border-[var(--border)] md:order-2 md:w-auto md:border-t-0"
+          className="pkm-tablist order-3 w-full items-center gap-0.5 border-t border-[var(--border)] md:order-2 md:w-auto md:border-t-0"
         >
           {TABS.map((tab) => {
             const Icon = tab.icon;
@@ -154,12 +160,17 @@ export function Header({
                     inline: 'nearest',
                   });
                 }}
-                className="pkm-tab inline-flex items-center gap-1.5 px-3.5 py-3 text-[13px] font-medium transition focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"
+                className="pkm-tab inline-flex items-center gap-1.5 px-3 py-3 text-[13px] font-medium transition focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"
               >
                 <Icon className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>
                   {tab.step}. {tab.label}
                 </span>
+                {tab.id === 'preview' && ideaCount > 0 && (
+                  <span className="font-mono-code rounded-full bg-[var(--bg-subtle)] px-1.5 py-0.2 text-[10px] font-bold text-[var(--text-secondary)]">
+                    {ideaCount}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -171,18 +182,18 @@ export function Header({
             type="button"
             onClick={onOpenJoinModal}
             title={`Online (${onlineUsers.length}): ${onlineUsers
-              .map((u) => `${u.name} (${TAB_NAMES[u.activeTab]})`)
+              .map((u) => `${u.name || 'Tim'} (${TAB_NAMES[u.activeTab] ?? u.activeTab ?? 'Ruang Ide'})`)
               .join(', ')} — Klik untuk ganti nama/room`}
             className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--bg-surface)] py-1 pl-1.5 pr-2.5 text-xs text-[var(--text-primary)] transition hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)]"
           >
             <div className="flex -space-x-1.5">
-              {onlineUsers.slice(0, 5).map((u) => (
+              {onlineUsers.slice(0, 5).map((u, idx) => (
                 <span
-                  key={u.sessionId}
-                  style={{ backgroundColor: u.color }}
+                  key={u.sessionId || `user-${idx}`}
+                  style={{ backgroundColor: u.color || '#6366F1' }}
                   className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold text-white ring-2 ring-[var(--bg-surface)]"
                 >
-                  {u.name.slice(0, 2).toUpperCase()}
+                  {(u.name || '?').slice(0, 2).toUpperCase()}
                 </span>
               ))}
               {onlineUsers.length > 5 && (
@@ -196,7 +207,6 @@ export function Header({
             </span>
           </button>
 
-          {/* Two-state Dark/Light Mode Toggle (CSS-driven icon branching prevents FOUC) */}
           <button
             type="button"
             onClick={onToggleTheme}
@@ -216,7 +226,7 @@ export function Header({
           <button
             type="button"
             onClick={onOpenInspirasi}
-            title="Lihat 3 opsi pemantik & referensi awal"
+            title="Lihat alur 5 tahap & 3 opsi pemantik awal"
             className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg-surface)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]"
           >
             <Sparkles className="h-3.5 w-3.5 text-amber-500" />

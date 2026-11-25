@@ -433,3 +433,146 @@ html.is-kanban-dragging * {
 .react-flow__edge-text {
   fill: var(--text-secondary) !important;
 }
+
+/* FigJam-style Marquee Box Selection */
+.react-flow__selection {
+  background: color-mix(in srgb, var(--accent) 14%, transparent) !important;
+  border: 1.5px solid var(--accent) !important;
+  border-radius: 8px !important;
+}
+
+.react-flow__nodesselection-rect {
+  background: color-mix(in srgb, var(--accent) 7%, transparent) !important;
+  border: 1.5px dashed var(--accent) !important;
+  border-radius: 14px !important;
+}
+
+.canvas-hand-mode .react-flow__pane {
+  cursor: grab !important;
+}
+
+.canvas-hand-mode .react-flow__pane:active {
+  cursor: grabbing !important;
+}
+
+.studio-toolbar button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+/* Responsive Portfolio Comparison Table (modern-web-guidance: responsive-table) */
+.portfolio-table-wrapper {
+  overflow: auto;
+  max-inline-size: 100%;
+  max-block-size: min(640px, 76dvh);
+  container-type: inline-size;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background-color: var(--bg-surface);
+}
+
+.portfolio-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+  font-size: 0.8125rem;
+}
+
+.portfolio-table thead {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 2;
+  background-color: var(--bg-subtle);
+}
+
+.portfolio-table thead th {
+  padding: 0.75rem 1rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.portfolio-table tbody th {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 1;
+  background-color: var(--bg-surface);
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  min-inline-size: 210px;
+}
+
+.portfolio-table tbody td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  color: var(--text-secondary);
+}
+
+.portfolio-table tbody tr:last-child th,
+.portfolio-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+@container (width < 680px) {
+  .portfolio-table,
+  .portfolio-table thead,
+  .portfolio-table tbody,
+  .portfolio-table tr,
+  .portfolio-table th,
+  .portfolio-table td {
+    display: block;
+  }
+
+  .portfolio-table thead {
+    display: none;
+  }
+
+  .portfolio-table tbody tr {
+    margin: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.875rem;
+    overflow: hidden;
+    background-color: var(--bg-surface);
+  }
+
+  .portfolio-table tbody th {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 2;
+    background-color: var(--bg-subtle);
+    min-inline-size: 0;
+  }
+
+  .portfolio-table tbody td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6rem 1rem;
+  }
+
+  .portfolio-table {
+    --label-2: "Track & Tahap";
+    --label-3: "Bedah 4 Pilar";
+    --label-4: "Mindmap";
+    --label-5: "Kelengkapan";
+    --label-6: "Vote";
+    --label-7: "Keputusan";
+    --label-8: "Aksi";
+  }
+
+  .portfolio-table td:nth-child(2)::before { content: var(--label-2) ": "; font-weight: 600; color: var(--text-muted); font-size: 0.72rem; }
+  .portfolio-table td:nth-child(3)::before { content: var(--label-3) ": "; font-weight: 600; color: var(--text-muted); font-size: 0.72rem; }
+  .portfolio-table td:nth-child(4)::before { content: var(--label-4) ": "; font-weight: 600; color: var(--text-muted); font-size: 0.72rem; }
+  .portfolio-table td:nth-child(5)::before { content: var(--label-5) ": "; font-weight: 600; color: var(--text-muted); font-size: 0.72rem; }
+  .portfolio-table td:nth-child(6)::before { content: var(--label-6) ": "; font-weight: 600; color: var(--text-muted); font-size: 0.72rem; }
+  .portfolio-table td:nth-child(7)::before { content: var(--label-7) ": "; font-weight: 600; color: var(--text-muted); font-size: 0.72rem; }
+  .portfolio-table td:nth-child(8)::before { content: var(--label-8) ": "; font-weight: 600; color: var(--text-muted); font-size: 0.72rem; }
+}
