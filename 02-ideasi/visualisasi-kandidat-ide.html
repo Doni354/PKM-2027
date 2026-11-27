@@ -1,0 +1,1320 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <script>
+    (function () {
+      try {
+        var s = localStorage.getItem('pkm-explorer-scheme');
+        if (s === 'light' || s === 'dark') {
+          var m = document.querySelector('meta[name="color-scheme"]');
+          if (m) m.content = s;
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <title>Peta Kandidat Ide PKM 2027 — Visual Explorer</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg-canvas: #f8f9fb;
+      --bg-surface: #ffffff;
+      --bg-subtle: #f1f3f6;
+      --border: #e4e7ec;
+      --border-strong: #cdd3dc;
+      --text-primary: #111318;
+      --text-secondary: #525866;
+      --text-muted: #7c8494;
+      --accent: #4f46e5;
+      --accent-soft: #eef2ff;
+      --btn-solid-bg: #111318;
+      --btn-solid-fg: #ffffff;
+      --shadow-card: 0 1px 2px rgb(16 24 40 / 0.05), 0 1px 3px rgb(16 24 40 / 0.04);
+      --shadow-float: 0 12px 32px rgb(16 24 40 / 0.14);
+
+      @media (prefers-color-scheme: dark) {
+        --bg-canvas: #0c0d11;
+        --bg-surface: #14161d;
+        --bg-subtle: #1a1d26;
+        --border: #252936;
+        --border-strong: #373d50;
+        --text-primary: #f2f4f8;
+        --text-secondary: #a1a8b8;
+        --text-muted: #727a8c;
+        --accent: #818cf8;
+        --accent-soft: rgb(99 102 241 / 0.16);
+        --btn-solid-bg: #f2f4f8;
+        --btn-solid-fg: #0c0d11;
+        --shadow-card: 0 1px 2px rgb(0 0 0 / 0.35);
+        --shadow-float: 0 16px 40px rgb(0 0 0 / 0.55);
+      }
+
+      @supports (color: light-dark(white, black)) {
+        --bg-canvas: light-dark(#f8f9fb, #0c0d11);
+        --bg-surface: light-dark(#ffffff, #14161d);
+        --bg-subtle: light-dark(#f1f3f6, #1a1d26);
+        --border: light-dark(#e4e7ec, #252936);
+        --border-strong: light-dark(#cdd3dc, #373d50);
+        --text-primary: light-dark(#111318, #f2f4f8);
+        --text-secondary: light-dark(#525866, #a1a8b8);
+        --text-muted: light-dark(#7c8494, #727a8c);
+        --accent: light-dark(#4f46e5, #818cf8);
+        --accent-soft: light-dark(#eef2ff, rgb(99 102 241 / 0.16));
+        --btn-solid-bg: light-dark(#111318, #f2f4f8);
+        --btn-solid-fg: light-dark(#ffffff, #0c0d11);
+      }
+
+      &:has(> head > meta[name="color-scheme"][content="dark"]) {
+        color-scheme: dark;
+      }
+      &:has(> head > meta[name="color-scheme"][content="light"]) {
+        color-scheme: light;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background-color: var(--bg-canvas);
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 5rem;
+    }
+
+    /* Header */
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1rem;
+      padding-bottom: 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 0 0 0.35rem;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      line-height: 1.2;
+    }
+
+    .subtitle {
+      margin: 0.35rem 0 0;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      max-width: 68ch;
+    }
+
+    .top-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    button {
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.48rem 0.9rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      font-size: 0.78rem;
+      font-weight: 600;
+      transition: border-color 140ms ease, background-color 140ms ease, opacity 140ms ease;
+    }
+
+    .btn:hover {
+      border-color: var(--border-strong);
+      background: var(--bg-subtle);
+    }
+
+    .btn-solid {
+      background: var(--btn-solid-bg);
+      color: var(--btn-solid-fg);
+      border-color: transparent;
+    }
+
+    .btn-solid:hover {
+      background: var(--btn-solid-bg);
+      opacity: 0.88;
+    }
+
+    /* Quick Decision Strip */
+    .guardrail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 0.75rem;
+      margin-top: 1.25rem;
+    }
+
+    .guardrail-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 0.85rem 1rem;
+      box-shadow: var(--shadow-card);
+    }
+
+    .guardrail-card h2 {
+      margin: 0;
+      font-size: 0.78rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .guardrail-card p {
+      margin: 0.35rem 0 0;
+      font-size: 0.74rem;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.16rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    /* Interactive 2x2 Matrix + Legend Panel */
+    .matrix-section {
+      margin-top: 1.25rem;
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.85fr);
+      gap: 1rem;
+      align-items: stretch;
+    }
+
+    @media (max-width: 900px) {
+      .matrix-section {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 1.125rem;
+      padding: 1.1rem 1.2rem;
+      box-shadow: var(--shadow-card);
+    }
+
+    .panel-title {
+      margin: 0;
+      font-size: 0.88rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .panel-sub {
+      margin: 0.2rem 0 0.85rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .matrix-svg {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 0.75rem;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+    }
+
+    .dot-group {
+      cursor: pointer;
+    }
+
+    .dot-group circle {
+      transition: r 150ms ease, stroke-width 150ms ease;
+    }
+
+    .dot-group:hover circle,
+    .dot-group:focus-visible circle {
+      stroke-width: 3;
+    }
+
+    /* Filter Bar */
+    .filters-bar {
+      margin-top: 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      align-items: center;
+    }
+
+    .chip {
+      padding: 0.36rem 0.78rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+      font-weight: 600;
+      transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+    }
+
+    .chip:hover {
+      border-color: var(--border-strong);
+      color: var(--text-primary);
+    }
+
+    .chip[aria-pressed="true"] {
+      background: var(--btn-solid-bg);
+      color: var(--btn-solid-fg);
+      border-color: transparent;
+    }
+
+    .search-sort {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .input,
+    .select {
+      padding: 0.42rem 0.8rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      font: inherit;
+      font-size: 0.76rem;
+      outline: none;
+    }
+
+    .input:focus,
+    .select:focus {
+      border-color: var(--accent);
+    }
+
+    /* Accessible Container-Query Card Grid (modern-web-guidance: card) */
+    .cards-grid {
+      margin-top: 1rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+      gap: 1rem;
+    }
+
+    .idea-card {
+      container-type: inline-size;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      background: var(--bg-surface);
+      border: 2px solid var(--border);
+      border-radius: 1.125rem;
+      padding: 1.15rem;
+      box-shadow: var(--shadow-card);
+      transition: border-color 150ms ease, box-shadow 150ms ease;
+    }
+
+    .idea-card:hover {
+      border-color: var(--border-strong);
+    }
+
+    .idea-card[data-shortlisted="true"] {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .idea-card > header {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+
+    .card-badges {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.4rem;
+    }
+
+    .badge-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      align-items: center;
+    }
+
+    .idea-card h3 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: -0.015em;
+      line-height: 1.3;
+    }
+
+    .card-content {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      flex: 1;
+    }
+
+    .kv-box {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 0.65rem 0.8rem;
+      font-size: 0.77rem;
+      color: var(--text-secondary);
+    }
+
+    .kv-box strong {
+      display: block;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      margin-bottom: 0.18rem;
+    }
+
+    .metrics-bars {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem 0.75rem;
+      padding-top: 0.2rem;
+    }
+
+    @container (width < 300px) {
+      .metrics-bars {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .metric-row {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+    }
+
+    .metric-top {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.2rem;
+      font-weight: 600;
+    }
+
+    .bar-track {
+      height: 5px;
+      border-radius: 999px;
+      background: var(--bg-subtle);
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+    }
+
+    .idea-card > footer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .shortlist-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .shortlist-toggle input {
+      accent-color: var(--accent);
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+    }
+
+    /* Native Modal Dialog */
+    dialog:modal {
+      width: min(760px, calc(100% - 2rem));
+      max-height: calc(100dvh - 2.5rem);
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: 1.25rem;
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      box-shadow: var(--shadow-float);
+      overscroll-behavior: contain;
+    }
+
+    dialog::backdrop {
+      background: rgb(0 0 0 / 0.52);
+      backdrop-filter: blur(5px);
+    }
+
+    .modal-head {
+      position: sticky;
+      top: 0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1.15rem 1.4rem;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      z-index: 2;
+    }
+
+    .modal-body {
+      padding: 1.25rem 1.4rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      font-size: 0.84rem;
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .detail-box {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 0.85rem;
+      padding: 0.8rem 0.95rem;
+    }
+
+    .detail-box h4 {
+      margin: 0 0 0.3rem;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--accent);
+    }
+
+    .detail-box p,
+    .detail-box ul {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+    }
+
+    .detail-box ul {
+      padding-left: 1.1rem;
+    }
+
+    /* Floating Shortlist Bar */
+    .shortlist-dock {
+      position: fixed;
+      left: 50%;
+      bottom: 1.1rem;
+      transform: translateX(-50%);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.65rem;
+      padding: 0.6rem 0.9rem 0.6rem 1.1rem;
+      border-radius: 999px;
+      border: 1px solid var(--accent);
+      background: var(--bg-surface);
+      box-shadow: var(--shadow-float);
+      z-index: 20;
+      max-width: calc(100vw - 1.5rem);
+    }
+
+    .shortlist-dock[hidden] {
+      display: none;
+    }
+
+    .toast {
+      position: fixed;
+      right: 1.25rem;
+      bottom: 1.25rem;
+      padding: 0.55rem 1rem;
+      border-radius: 999px;
+      background: var(--btn-solid-bg);
+      color: var(--btn-solid-fg);
+      font-size: 0.76rem;
+      font-weight: 600;
+      box-shadow: var(--shadow-float);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease;
+      z-index: 40;
+    }
+
+    .toast[data-visible="true"] {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">PKM 2027 · Telkom University Surabaya · Problem-First Explorer</p>
+        <h1>Peta 9 Kandidat Ide Berdampak (Lintas Skema PKM)</h1>
+        <p class="subtitle">
+          Visualisasi ringkas dari <code>02-ideasi/02-eksplorasi-kandidat-ide-pkm-2027.md</code>. Centang 2–3 favorit untuk shortlist, klik kartu untuk bedah 6 pertanyaan kunci &amp; 3 aspek keterukuran, atau salin langsung ke <strong>Idea Studio</strong> (<code>Ctrl+V</code>).
+        </p>
+      </div>
+      <div class="top-actions">
+        <button type="button" id="themeToggle" class="btn" aria-label="Ganti mode gelap atau terang">
+          🌗 Ganti Tema
+        </button>
+      </div>
+    </header>
+
+    <!-- Guardrail Decisions Strip -->
+    <section aria-label="Ringkasan keputusan strategis awal" class="guardrail-grid">
+      <div class="guardrail-card">
+        <h2>INFRIA <span class="pill" style="background:rgb(245 158 11 / 0.16);color:#d97706;">Bahan Bahas · Lomba Bisnis</span></h2>
+        <p>Tetap disimpan sebagai bahan bahas. Lebih cocok jadi SaaS di P2MW / GEMASTIK daripada PKM-KI.</p>
+      </div>
+      <div class="guardrail-card">
+        <h2>Kopdes Merah Putih <span class="pill" style="background:var(--bg-subtle);color:var(--text-secondary);">Bahan Pembanding</span></h2>
+        <p>Tetap ada di arsip diskusi sebagai pembanding. Dampak langsung keluarga lebih kuat di SPPG, anak, &amp; UMKM gorengan.</p>
+      </div>
+      <div class="guardrail-card">
+        <h2>Domain Velinked (FIKSI '24) <span class="pill" style="background:rgb(16 185 129 / 0.16);color:#059669;">Aman + Syarat Rebuild</span></h2>
+        <p>Lomba SMA bukan hibah PT. Wajib <em>rebuild from 0</em> level S1 + objek uji armada nyata di Surabaya.</p>
+      </div>
+      <div class="guardrail-card">
+        <h2>Audit Kebaruan &amp; Jelantah #9 <span class="pill" style="background:var(--accent-soft);color:var(--accent);">Diperluas 3-in-1</span></h2>
+        <p>Semua 9 ide sudah diaudit terhadap produk eksisting (<code>Testo 270</code>, <code>UCOllect</code>, <code>LINGO</code>, <code>Aqara FP2</code>, <code>Bark</code>).</p>
+      </div>
+    </section>
+
+    <!-- Interactive 2x2 Matrix + Legend -->
+    <section class="matrix-section" aria-label="Matriks dampak dan kemudahan validasi Surabaya">
+      <div class="panel">
+        <h2 class="panel-title">
+          <span>Matriks Prioritas: Dampak Keluarga/Publik vs Kemudahan Validasi Surabaya</span>
+          <span style="font-size:0.72rem;font-weight:500;color:var(--text-muted);">Klik titik untuk buka detail</span>
+        </h2>
+        <p class="panel-sub">Kanan-atas = <strong>Sweet Spot PKM 2027</strong> (dampak besar + objek lapangan dekat kampus + realistis 1:1).</p>
+        <svg id="matrixSvg" class="matrix-svg" viewBox="0 0 640 310" role="img" aria-label="Grafik sebar 9 kandidat ide berdasarkan dampak dan kemudahan validasi"></svg>
+      </div>
+
+      <div class="panel" style="display:flex;flex-direction:column;justify-content:space-between;gap:0.75rem;">
+        <div>
+          <h2 class="panel-title">Rekomendasi Top 3 untuk Bimbingan Bu Arni</h2>
+          <p class="panel-sub">Urutan berdasarkan kombinasi Dampak Keluarga, Akses Surabaya, Wujud 1:1, &amp; Kecocokan Riset Bu Arni.</p>
+          <ol id="topPicksList" style="margin:0;padding-left:1.15rem;display:flex;flex-direction:column;gap:0.6rem;font-size:0.78rem;color:var(--text-secondary);"></ol>
+        </div>
+        <div style="padding-top:0.65rem;border-top:1px solid var(--border);font-size:0.73rem;color:var(--text-muted);">
+          <strong>Tip Rapat Tim:</strong> Centang 2–3 ide favorit di bawah, klik <em>Salin Shortlist</em>, lalu tempel di <strong>Idea Studio</strong> agar teman-teman bisa lanjut membedah 4 pilar &amp; mindmap bersama.
+        </div>
+      </div>
+    </section>
+
+    <!-- Filters -->
+    <section class="filters-bar" aria-label="Filter kandidat ide">
+      <div class="chip-row" id="clusterChips" role="group" aria-label="Filter klaster domain"></div>
+      <div class="search-sort">
+        <select id="schemeFilter" class="select" aria-label="Filter skema PKM">
+          <option value="ALL">Semua Skema PKM</option>
+          <option value="PKM-KI">PKM-KI (Karya Inovatif 1:1)</option>
+          <option value="PKM-KC">PKM-KC (Karsa Cipta)</option>
+          <option value="PKM-K">PKM-K (Kewirausahaan)</option>
+          <option value="PKM-PM">PKM-PM / PI (Masyarakat &amp; Mitra)</option>
+          <option value="PKM-VGK">PKM-VGK (Gagasan Konstruktif)</option>
+        </select>
+        <select id="sortSelect" class="select" aria-label="Urutkan kandidat">
+          <option value="total">Urut: Skor Terbaik PKM</option>
+          <option value="impact">Urut: Dampak Keluarga/Publik</option>
+          <option value="surabaya">Urut: Akses Lapangan Surabaya</option>
+          <option value="fit">Urut: Kecocokan Tim &amp; Dospem</option>
+        </select>
+        <input id="searchInput" class="input" type="search" placeholder="Cari kata kunci..." aria-label="Cari kandidat ide" />
+      </div>
+    </section>
+
+    <!-- Cards Grid -->
+    <main id="cardsGrid" class="cards-grid" aria-live="polite"></main>
+  </div>
+
+  <!-- Detail Native Dialog -->
+  <dialog id="detailDialog" closedby="any" aria-labelledby="dialogTitle">
+    <div class="modal-head">
+      <div>
+        <div id="dialogBadges" class="badge-group" style="margin-bottom:0.4rem;"></div>
+        <h2 id="dialogTitle" style="margin:0;font-size:1.1rem;font-weight:800;line-height:1.3;"></h2>
+      </div>
+      <button type="button" id="closeDialogBtn" class="btn" aria-label="Tutup detail">✕ Tutup</button>
+    </div>
+    <div id="dialogBody" class="modal-body"></div>
+  </dialog>
+
+  <!-- Floating Shortlist Dock -->
+  <div id="shortlistDock" class="shortlist-dock" hidden>
+    <span id="shortlistLabel" style="font-size:0.78rem;font-weight:700;"></span>
+    <button type="button" id="copyShortlistBtn" class="btn btn-solid">Salin Shortlist (Siap Paste)</button>
+    <button type="button" id="clearShortlistBtn" class="btn">Reset</button>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const IDEAS = [
+      {
+        id: 'sppg-guard',
+        num: 1,
+        short: 'SPPG Time-Temp Guard',
+        title: 'Kotak Pantau Suhu-Waktu IoT + Audit Porsi Visi Komputer (SPPG & Katering Sekolah)',
+        cluster: 'Keluarga & Anak',
+        color: '#10b981',
+        primaryScheme: 'PKM-KI',
+        schemes: ['PKM-KI', 'PKM-PI'],
+        otherComps: 'GEMASTIK · P2MW',
+        tema: '2. Kesehatan dan Gizi Masyarakat',
+        tag: 'Fisik IoT + App CV',
+        noveltyLevel: 'Kebaruan Tinggi',
+        existing: 'Data logger rantai dingin farmasi/industri (mahal, tertutup) & form QC kertas manual di katering.',
+        innovationGap: 'Sangat layak kembang: belum ada sistem 1:1 terjangkau khusus dapur MBG/SPPG yang gabungkan alarm holding time 4 jam BPOM, QR kesegaran yang bisa dipindai sekolah, & CV audit ompreng.',
+        impact: 96,
+        surabaya: 86,
+        readiness1to1: 94,
+        fitTeam: 92,
+        problem: 'KLB keracunan MBG/SPPG dipicu pelanggaran batas aman holding time > 4 jam BPOM (masak jam 01.00, dimakan siswa jam 11.00–12.00) & lemahnya kontrol suhu/porsi di dapur baru.',
+        solution: 'Sensor suhu + timer IoT di thermobox distribusi (alarm LED/buzzer & QR kesegaran yang bisa dipindai sekolah) + aplikasi kamera HP cek kelengkapan porsi ompreng.',
+        surabayaTarget: '2–3 dapur katering sekolah/pabrik UMKM Surabaya–Sidoarjo atau unit SPPG aktif.',
+        measurability: {
+          realitas: 'Rekap QC turun dari ~45 mnt ke <5 mnt; 100% batch terpantau di bawah ambang 4 jam selama 2–3 minggu uji.',
+          teknis: 'Akurasi sensor ±0,5°C, baterai modul ≥12 jam, deteksi komponen porsi mAP ≥88%, inferensi <2 dtk, offline-first.',
+          teori: 'SOP BPOM 4 jam & 5 Kunci Keamanan Pangan, SNI CAC/RCP 1:2011 (HACCP/CPPOB), Permenkes 28/2019 (AKG).'
+        },
+        risks: 'Estimasi berat porsi dari foto 2D bisa meleset → mitigasi dengan kalibrasi ompreng standar + spot-check timbangan.'
+      },
+      {
+        id: 'slb-non-gawai',
+        num: 2,
+        short: 'Alat Belajar Inklusif SLB',
+        title: 'Perangkat Belajar Non-Gawai Berbasis Edge-AI Luring untuk Anak SLB / Disleksia',
+        cluster: 'Keluarga & Anak',
+        color: '#4f46e5',
+        primaryScheme: 'PKM-KI',
+        schemes: ['PKM-KI', 'PKM-KC', 'PKM-PM'],
+        otherComps: 'LIDM · EdTech Nasional',
+        tema: '7. Perlindungan Hak Anak & Disabilitas',
+        tag: 'Fisik Edge-AI + Web',
+        noveltyLevel: 'Kebaruan Tinggi',
+        existing: 'LINGO (UGM, PKM-KI PIMNAS 2026) memakai ESP32-S3 untuk literasi PAUD–SD umum 5–7 thn; Smart Hafiz, Yoto, Toniebox.',
+        innovationGap: 'Sangat layak kembang asal dibedakan tegas dari LINGO UGM: kunci pada OCR kamera makro buku cetak/LKS sekolah apa saja + pemetaan galat fonemik disleksia (b/d, p/q) atau fokus SLB-A/SLB-B.',
+        impact: 95,
+        surabaya: 96,
+        readiness1to1: 95,
+        fitTeam: 99,
+        problem: 'Siswa SLB & SD inklusi (disleksia, tunanetra, tunarungu/wicara) minim pendamping personal; orang tua alami parental burnout; belajar via HP memicu distraksi gim.',
+        solution: 'Pilih 1 fokus saat survei SLB: (A) Alat baca buku cetak OCR+suara luring untuk disleksia, (B) Pemindai buku cetak ke audio taktil tunanetra, atau (C) Umpan balik artikulasi/BISINDO tunarungu.',
+        surabayaTarget: 'SLB yang sudah pernah dikunjungi Syahril + SD inklusi Surabaya (15–20 siswa + 15 guru/orang tua).',
+        measurability: {
+          realitas: 'Peningkatan WCPM / akurasi pelafalan/kemandirian belajar pre–post 3–4 minggu; UEQ guru & ortu kategori Good/Excellent.',
+          teknis: 'OCR buku cetak ≥95%, constrained WER ≤12%, latensi suara offline <1,5 dtk, baterai ≥4 jam, BoM tiap item ≤Rp1 jt.',
+          teori: 'Multisensory Orton-Gillingham, Hamming Distance & Text Similarity (Hibah Disleksia Bu Arni 2022 + Deep Learning Suara 2025).'
+        },
+        risks: 'Jangan campur semua disabilitas dalam 1 alat! Kunci 1 jenis disabilitas berdasarkan hasil wawancara langsung ke SLB Syahril.'
+      },
+      {
+        id: 'speech-delay-box',
+        num: 3,
+        short: 'Playbox Anti-Speech Delay',
+        title: 'Screen-Free Talking Playbox + Skrining Dini Speech Delay Balita (2–4 Tahun)',
+        cluster: 'Keluarga & Anak',
+        color: '#0ea5e9',
+        primaryScheme: 'PKM-KI',
+        schemes: ['PKM-KI', 'PKM-K'],
+        otherComps: 'P2MW · Startup Parenting',
+        tema: '2. Kesehatan & Gizi / 7. Hak Anak',
+        tag: 'Fisik NFC-Audio + App',
+        noveltyLevel: 'Perlu Diferensiasi Tajam',
+        existing: 'LINGO UGM (PIMNAS 2026) untuk literasi awal 5–7 thn; Smart Hafiz, Yoto Player, Toniebox.',
+        innovationGap: 'Layak kembang jika pivot tajam ke skrining klinis dini Speech Delay usia 2–4 tahun berbasis KPSP Kemenkes + turn-taking NFC (hindari posisi "literasi umum 5–7 thn" agar tak bentrok dengan LINGO UGM).',
+        impact: 94,
+        surabaya: 94,
+        readiness1to1: 92,
+        fitTeam: 95,
+        problem: 'Orang tua sibuk bekerja menyerahkan HP (komunikasi 1 arah). IDAI mencatat 5–8% speech delay nasional (kota besar hingga 21–32%) dan Pemkot Surabaya jalankan SOTH karena ~50% masalah tumbuh kembang dari pola asuh.',
+        solution: 'Mainan kotak meja tanpa layar dengan kartu gambar NFC. Anak tempel kartu → alat mengajak dialog 2 arah (turn-taking) & melacak kosakata + skrining red-flag KPSP ke HP orang tua.',
+        surabayaTarget: '20–30 keluarga balita 2–4 thn di PAUD/KB, Posyandu, atau peserta SOTH sekitar Ketintang–Gayungan–Wonocolo Surabaya.',
+        measurability: {
+          realitas: 'Penurunan durasi screen time harian anak & peningkatan kosakata aktif selama 3 minggu pemakaian keluarga.',
+          teknis: 'Akurasi pengenalan kata target anak luring ≥90%, pembacaan kartu NFC <0,3 dtk, latensi respons <1,5 dtk, casing aman anak.',
+          teori: 'Pedoman KPSP Kemenkes RI, rekomendasi 0 screen time IDAI, teori Turn-Taking Language Acquisition & Edge ASR.'
+        },
+        risks: 'Suara balita kurang jelas → mitigasi pakai vocabulary terbatas per kartu NFC (keyword spotting) bukan ASR bebas.'
+      },
+      {
+        id: 'teen-active-parenting',
+        num: 4,
+        short: 'Active Parenting Remaja',
+        title: 'Pendamping Parenting Aktif & Deteksi Cyberbullying/Judol Remaja (On-Device AI)',
+        cluster: 'Keluarga & Anak',
+        color: '#8b5cf6',
+        primaryScheme: 'PKM-KI',
+        schemes: ['PKM-KI', 'PKM-KC', 'PKM-PM'],
+        otherComps: 'GEMASTIK · Keamanan Siber',
+        tema: '7. Perlindungan Anak',
+        tag: 'On-Device AI (Non-Sadap)',
+        noveltyLevel: 'Kebaruan Tinggi',
+        existing: 'Bark (AI alert), Qustodio, Google Family Link.',
+        innovationGap: 'Layak kembang: produk global mahal (USD), proses teks di cloud, & lemah membaca bahasa gaul Indonesia serta kode judol. Nilai baru: 100% On-Device SLM Indonesia (0-byte ke server) + Active Mediation patuh PP Tunas 2025.',
+        impact: 90,
+        surabaya: 88,
+        readiness1to1: 82,
+        fitTeam: 90,
+        problem: 'Komdigi/SNPHAR mencatat 48% anak & remaja pernah alami cyberbullying (dominan di chat privat) & puluhan ribu anak terpapar judi online. Google Family Link bersifat memata-matai sehingga remaja menolak.',
+        solution: 'On-Device AI Android yang memindai risiko bullying/grooming/judol secara lokal tanpa mengirim teks mentah ke server/ortu — hanya mengirim skor risiko + panduan dialog Active Mediation.',
+        surabayaTarget: '20–30 pasangan orang tua & siswa SMP/SMA (12–17 tahun) di Surabaya.',
+        measurability: {
+          realitas: 'Uji UEQ dua sisi (remaja merasa privasi terjaga, orang tua lebih tenang & cepat tahu risiko dini).',
+          teknis: 'F1-score klasifikasi teks gaul/judol/bullying ≥88%, 0 byte teks mentah keluar HP (lokal), konsumsi baterai tambahan <5%/hari.',
+          teori: 'PP No. 17 Tahun 2025 (PP Tunas), UU PDP, teori Active Parental Mediation, Small Language Model / TinyBERT on-device.'
+        },
+        risks: 'Pembatasan izin Android & sensitivitas remaja → pastikan transparansi penuh dengan remaja (bukan spyware tersembunyi).'
+      },
+      {
+        id: 'kdrt-stop-wedding',
+        num: 5,
+        short: 'Safe-Vault KDRT & Nikah Anak',
+        title: 'Safe-Vault Penyamaran Bukti KDRT Terenkripsi & Early Warning "Stop the Wedding"',
+        cluster: 'Perlindungan & Lansia',
+        color: '#ec4899',
+        primaryScheme: 'PKM-KC',
+        schemes: ['PKM-KC', 'PKM-PM', 'PKM-VGK'],
+        otherComps: 'Social Innovation · Hackathon',
+        tema: '7. Perlindungan Perempuan & Anak',
+        tag: 'Safe-Tech / Gagasan',
+        noveltyLevel: 'Kebaruan Cukup',
+        existing: 'Portal resmi SAPA 129, website UPTD PPA, & aplikasi calculator vault biasa di Play Store.',
+        innovationGap: 'Layak kembang untuk PKM-KC/PM/VGK: vault biasa tidak punya hash integritas bukti forensik + silent panic gesture + kanal rujukan hukum & pencegahan perkawinan anak lokal.',
+        impact: 92,
+        surabaya: 72,
+        readiness1to1: 76,
+        fitTeam: 80,
+        problem: 'SIMFONI PPA 2025: 35.025 korban (59,5% KDRT; Jatim peringkat atas) & 7.590 perkawinan anak di Jatim. Korban takut lapor karena HP diperiksa pelaku & bukti sering dihapus paksa.',
+        solution: 'Aplikasi penyamaran (berkedok kalkulator/catatan belanja) menyimpan bukti terenkripsi + timestamp forensik + silent panic button ke kontak aman/UPTD PPA; atau versi PKM-VGK integrasi KUA-Sekolah.',
+        surabayaTarget: 'Komunitas perempuan, kader kelurahan, relawan LBH, atau konsultasi DP3APPKB Surabaya.',
+        measurability: {
+          realitas: 'Waktu aktivasi mode aman <5 dtk; persepsi rasa aman & kemudahan penggunaan (UEQ/SUS) pada 20 responden perempuan/relawan.',
+          teknis: 'Enkripsi AES-256 lokal, hash SHA-256 integritas bukti + timestamp, penghapusan jejak otomatis jika PIN paksa dimasukkan.',
+          teori: 'UU No. 23/2004 (PKDRT), UU No. 16/2019 (Batas Usia Nikah 19 thn), UU PDP, Trauma-Informed UX Design.'
+        },
+        risks: 'Etika & akses langsung ke penyintas sangat sensitif → sangat cocok sebagai PKM-KC / PKM-VGK / PKM-PM bersama relawan terlatih.'
+      },
+      {
+        id: 'lansia-mmwave',
+        num: 6,
+        short: 'Radar Jatuh Lansia (mmWave)',
+        title: 'Detektor Jatuh & Anomali Aktivitas Lansia Tanpa Kamera (Privacy-First mmWave)',
+        cluster: 'Perlindungan & Lansia',
+        color: '#14b8a6',
+        primaryScheme: 'PKM-KI',
+        schemes: ['PKM-KI', 'PKM-KC'],
+        otherComps: 'IoT Nasional · HealthTech',
+        tema: '2. Kesehatan / 7. Kelompok Rentan',
+        tag: 'Fisik Radar 24/60GHz',
+        noveltyLevel: 'Perlu Diferensiasi Tajam',
+        existing: 'Aqara FP2 (60GHz mmWave deteksi jatuh, sudah dijual di Tokopedia/Blibli) & Tuya mmWave Fall Sensor.',
+        innovationGap: 'Hati-hati: deteksi jatuh mmWave saja kebaruannya rendah karena sudah dijual komersial! Wajib diferensiasi lewat sistem mandiri tanpa hub smart-home berbayar (WA/GSM lokal) + AI anomali rutinitas kamar mandi + interkom 2 arah.',
+        impact: 88,
+        surabaya: 86,
+        readiness1to1: 93,
+        fitTeam: 84,
+        problem: 'Lansia sering ditinggal sendirian oleh keluarga pekerja. Jatuh di kamar mandi/kamar tidur tanpa diketahui (long lie) berakibat fatal; CCTV melanggar privasi & gelang sering lupa dipakai.',
+        solution: 'Sensor dinding radar mmWave (tanpa kamera, menembus uap kamar mandi) + AI anomali rutinitas (mis. >30 mnt diam di kamar mandi) + intercom suara singkat & peringatan darurat ke HP anak.',
+        surabayaTarget: 'Posyandu Lansia kelurahan sekitar kampus, Panti Werdha Surabaya, atau 10–15 keluarga dengan lansia.',
+        measurability: {
+          realitas: 'Uji skenario jatuh & aktivitas normal pada 10–15 keluarga/lansia + UEQ pada anak/pengasuh.',
+          teknis: 'Sensitivity/Recall jatuh ≥95%, False Positive Rate ≤5% (duduk/membungkuk/mandi), latensi peringatan <5 dtk, BoM <Rp700rb/unit.',
+          teori: 'Pemrosesan sinyal FMCW mmWave Radar, pedoman geriatri pencegahan komplikasi long-lie, Privacy-by-Design (UU PDP).'
+        },
+        risks: 'Komersialnya Aqara FP2 membuat ide detektor jatuh standar mudah dikritik → kuncinya di deteksi anomali rutinitas harian + interkom anti-false-alarm tanpa hub mahal.'
+      },
+      {
+        id: 'smart-copilot-bus',
+        num: 7,
+        short: 'Smart Co-Pilot Bus/Truk',
+        title: 'Kotak Hitam Pintar Deteksi Bus/Truk Ugal-Ugalan & Kantuk (Rebuild Level S1)',
+        cluster: 'Keselamatan Jalan',
+        color: '#f59e0b',
+        primaryScheme: 'PKM-KI',
+        schemes: ['PKM-KI', 'PKM-KC'],
+        otherComps: 'GEMASTIK · Smart Mobility',
+        tema: '8. Mitigasi Bencana / 6. Sains-Teknologi',
+        tag: 'Fisik IMU + IR Vision',
+        noveltyLevel: 'Kebaruan Cukup',
+        existing: 'Fleet telematics korporat (Geotab, Samsara, Mobileye puluhan juta/unit) & dashcam biasa.',
+        innovationGap: 'Layak kembang dengan syarat: telematics korporat terlalu mahal untuk PO lokal/travel kecil. Celahnya ada pada perangkat <Rp1 jt plug-and-play + Safety Score transparan bagi sekolah/penyewa bus.',
+        impact: 91,
+        surabaya: 66,
+        readiness1to1: 88,
+        fitTeam: 86,
+        problem: 'Polda Jatim: 28.032 kecelakaan hingga Okt 2026 (+19% YoY); >90% faktor manusia (kantuk, ugal-ugalan) & rem blong bus pariwisata/truk. Penumpang & PO lokal tak punya pemantau objektif terjangkau.',
+        solution: 'Alat dasbor plug-and-play (IMU 6-axis + GPS + kamera IR luring) mendeteksi harsh braking, zig-zag, ngebut, & microsleep malam hari → alarm suara kabin + dasbor Safety Score PO/penyewa bus.',
+        surabayaTarget: '3–5 armada PO travel/bus pariwisata lokal atau truk ekspedisi Surabaya–Sidoarjo.',
+        measurability: {
+          realitas: 'Penurunan skor manuver agresif & uji penerimaan pengemudi/manajer PO pada rute operasional nyata minimal 2 minggu.',
+          teknis: 'Akurasi deteksi manuver agresif (IMU) ≥92%, deteksi kantuk IR malam ≥90%, latensi alarm <1 dtk, tahan getaran/panas kabin.',
+          teori: 'Rekomendasi keselamatan KNKT, kinematic threshold aggressive driving, EAR (Eye Aspect Ratio) & PERCLOS.'
+        },
+        risks: 'Wajib re-architect dari 0 dibanding Velinked FIKSI 2024 + harus amankan izin pemasangan pada 3–5 kendaraan mitra nyata sejak awal.'
+      },
+      {
+        id: 'umkm-hiring-sop',
+        num: 8,
+        short: 'Hiring Anti-Spam + SOP UMKM',
+        title: 'Platform Rekrutmen Terverifikasi NIB, Penyaring Mikro-Tugas & Kontrak SOP UMKM',
+        cluster: 'Dunia Kerja',
+        color: '#6366f1',
+        primaryScheme: 'PKM-K',
+        schemes: ['PKM-K', 'PKM-PI'],
+        otherComps: 'P2MW · GEMASTIK · Startup',
+        tema: '9. Penguatan UMKM & Ekonomi',
+        tag: 'Pure Software SaaS B2B',
+        noveltyLevel: 'Kebaruan Bisnis (PKM-K)',
+        existing: 'Jobstreet, Glints, KitaLulus, Sribu, Mekari Talenta, GreatDay HR.',
+        innovationGap: 'Layak untuk PKM-K / P2MW (bukan PKM-KI): portal kerja penuh spam one-click apply & ghost jobs, sedangkan HRIS tidak menyaring pelamar. Nilai baru: wajib NIB + mikro-tugas 5 mnt dinilai AI + kontrak SOP patuh PP 36/2021.',
+        impact: 78,
+        surabaya: 84,
+        readiness1to1: 80,
+        fitTeam: 91,
+        problem: '45% pelamar alami ghosting, marak ghost jobs & penipuan CV, sementara UMKM/startup tanpa tim HR tenggelam dalam spam one-click apply & belum punya kontrak/SOP digital kerja tetap maupun freelance.',
+        solution: 'Fokus 3 pisau (bukan super-app ERP): (1) Lowongan wajib verifikasi NIB + batas SLA anti-ghosting, (2) Penyaring anti-spam via mikro-tugas 5 mnt dinilai AI, (3) Onboarding SOP & kesepakatan kerja digital patuh PP 36/2021.',
+        surabayaTarget: '10–15 pemilik UMKM/startup rintisan Surabaya + 50–100 mahasiswa/pencari kerja freelance.',
+        measurability: {
+          realitas: 'Waktu screening kandidat UMKM turun ≥60%, tingkat respons status pelamar 100%, validasi willingness-to-pay (model bisnis PKM-K).',
+          teknis: 'Korelasi penilaian mikro-tugas AI vs kurator manusia ≥85%, proteksi privasi CV (UU PDP), uptime ≥99%.',
+          teori: 'Work Sample Testing (psikologi industri), PP No. 36/2021 tentang Pengupahan, Business Model Canvas & Lean Startup.'
+        },
+        risks: 'Di PKM-KI kalah pamor dari alat fisik 1:1 & rawan dikritik "sudah ada Jobstreet/Talenta" → jauh lebih mematikan jika masuk PKM-K / P2MW!'
+      },
+      {
+        id: 'jelantah-tpm',
+        num: 9,
+        short: 'Probe TPM & Ekosistem Jelantah',
+        title: 'Probe TPM Hibrida Terkalibrasi + Pre-Filter & Micro-Hub Jelantah UMKM Gorengan',
+        cluster: 'Lingkungan & Gizi',
+        color: '#059669',
+        primaryScheme: 'PKM-KI',
+        schemes: ['PKM-KI', 'PKM-K', 'PKM-PI'],
+        otherComps: 'Green Innovation · P2MW · Pertamina',
+        tema: '8. Pelestarian Lingkungan / 2. Kesehatan / 9. UMKM',
+        tag: 'Probe Hibrida + Pre-Filter + QR',
+        noveltyLevel: 'Kebaruan Tinggi',
+        existing: 'Testo 270 (Rp15,9–19,5 jt), ATAGO DOM-24 (Rp10,9–13,5 jt), prototipe optik Arduino mahasiswa, & Pertamina UCOllect Box × Noovoleum / Jelantah4Change di Surabaya.',
+        innovationGap: 'SANGAT LAYAK KEMBANG (naik kelas ke kandidat kuat PKM-KI): jawab 5 celah sekaligus — probe kapasitif+suhu+optik anti-salah-baca minyak berbumbu, pre-filter remahan tepung, jemput kolektif sentra gorengan bayar tunai/QRIS instan, & QR Minyak Sehat Teruji di gerobak.',
+        impact: 92,
+        surabaya: 93,
+        readiness1to1: 91,
+        fitTeam: 87,
+        problem: 'Alat uji TPM standar (Testo 270 Rp16–19 jt) tak terjangkau UMKM; sensor optik murah meleset di minyak berbumbu/gelap; UCOllect Box dibatasi volume rumah tangga, menolak jelantah berendapan tepung, & kalah dari tengkulak yang menjemput + bayar tunai di gerobak.',
+        solution: 'Inovasi 3-in-1 Closed-Loop: (1) Probe TPM Hibrida (kapasitif/dielektrik + suhu + optik, BoM <Rp600rb) terkalibrasi Testo 270; (2) Corong Pre-Filter remahan tepung + Micro-Hub jemput kolektif sentra gorengan cair tunai/QRIS atau tukar minyak baru; (3) Stiker QR "Minyak Sehat Teruji" di gerobak (consumer pull).',
+        surabayaTarget: '15–20 pedagang UMKM gorengan di sentra kuliner sekitar Ketintang–Gayungan–Wonokromo Surabaya + PKK & mitra pengepul biodiesel/SAF resmi.',
+        measurability: {
+          realitas: 'Volume jelantah terselamatkan dari got (liter/bln), penurunan pemakaian minyak TPM >24%, kenaikan kepercayaan pembeli & UEQ pedagang/konsumen.',
+          teknis: 'Galat kalibrasi vs Testo 270 / titrasi FFA ≤±2% TPM, waktu ukur <10 dtk, tahan suhu 180°C, efisiensi pre-filter endapan tepung ≥90%.',
+          teori: 'Ambang batas TPM 24–25% keamanan pangan, SNI 7709:2019, korelasi konstanta dielektrik–oksidasi lipid, & Circular Economy SAF/Biodiesel.'
+        },
+        risks: 'Wajib kalibrasi probe kapasitif-suhu terhadap Testo 270 / uji lab FFA pangan (gandeng 1 rekan Teknik Elektro/Teknologi Pangan) + ikat MoU pengepul resmi.'
+      }
+    ];
+
+    const CLUSTERS = ['Semua', 'Keluarga & Anak', 'Perlindungan & Lansia', 'Keselamatan Jalan', 'Dunia Kerja', 'Lingkungan & Gizi'];
+    let activeCluster = 'Semua';
+    const shortlisted = new Set();
+
+    const $ = (id) => document.getElementById(id);
+    const toastEl = $('toast');
+    let toastTimer = null;
+
+    function showToast(msg) {
+      toastEl.textContent = msg;
+      toastEl.dataset.visible = 'true';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toastEl.dataset.visible = 'false'; }, 2400);
+    }
+
+    function totalScore(idea) {
+      return Math.round(idea.impact * 0.3 + idea.surabaya * 0.25 + idea.readiness1to1 * 0.25 + idea.fitTeam * 0.2);
+    }
+
+    // Theme Toggle
+    $('themeToggle').addEventListener('click', () => {
+      const meta = document.querySelector('meta[name="color-scheme"]');
+      const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const cur = meta.content === 'dark' ? 'dark' : meta.content === 'light' ? 'light' : (sysDark ? 'dark' : 'light');
+      const next = cur === 'dark' ? 'light' : 'dark';
+      const storeVal = next === (sysDark ? 'dark' : 'light') ? null : next;
+      meta.content = storeVal ?? 'light dark';
+      try {
+        if (storeVal) localStorage.setItem('pkm-explorer-scheme', storeVal);
+        else localStorage.removeItem('pkm-explorer-scheme');
+      } catch (e) {}
+    });
+
+    // Render 2x2 Matrix SVG
+    function renderMatrix(list) {
+      const svg = $('matrixSvg');
+      const W = 640, H = 310, padL = 52, padR = 24, padT = 22, padB = 38;
+      const plotW = W - padL - padR;
+      const plotH = H - padT - padB;
+      const midX = padL + plotW * 0.5;
+      const midY = padT + plotH * 0.5;
+
+      const xScale = (v) => padL + ((Math.max(60, Math.min(100, v)) - 60) / 40) * plotW;
+      const yScale = (v) => padT + plotH - ((Math.max(70, Math.min(100, v)) - 70) / 30) * plotH;
+
+      let markup = `
+        <rect x="${midX}" y="${padT}" width="${padL + plotW - midX}" height="${midY - padT}" fill="currentColor" opacity="0.05" />
+        <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + plotH}" stroke="var(--border-strong)" stroke-width="1.2" />
+        <line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="var(--border-strong)" stroke-width="1.2" />
+        <line x1="${midX}" y1="${padT}" x2="${midX}" y2="${padT + plotH}" stroke="var(--border-strong)" stroke-dasharray="4 4" />
+        <line x1="${padL}" y1="${midY}" x2="${padL + plotW}" y2="${midY}" stroke="var(--border-strong)" stroke-dasharray="4 4" />
+        <text x="${padL + plotW - 6}" y="${padT + 15}" text-anchor="end" font-size="10" font-weight="700" fill="var(--accent)">★ SWEET SPOT PKM 2027</text>
+        <text x="${padL + 6}" y="${padT + 15}" font-size="10" font-weight="600" fill="var(--text-muted)">Dampak Tinggi · Perlu Mitra Khusus</text>
+        <text x="${padL + plotW / 2}" y="${H - 10}" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--text-secondary)">Kemudahan Akses Validasi Surabaya →</text>
+        <text x="16" y="${padT + plotH / 2}" text-anchor="middle" font-size="10.5" font-weight="600" fill="var(--text-secondary)" transform="rotate(-90 16 ${padT + plotH / 2})">Dampak Keluarga / Publik →</text>
+      `;
+
+      list.forEach((idea) => {
+        const cx = Math.round(xScale(idea.surabaya));
+        const cy = Math.round(yScale(idea.impact));
+        const labelAnchor = cx > W - 150 ? 'end' : 'start';
+        const lx = cx > W - 150 ? cx - 13 : cx + 13;
+        const isPicked = shortlisted.has(idea.id);
+        markup += `
+          <g class="dot-group" tabindex="0" role="button" aria-label="Buka detail ${idea.short}" data-open-id="${idea.id}">
+            <circle cx="${cx}" cy="${cy}" r="${isPicked ? 11 : 9}" fill="${idea.color}" stroke="var(--bg-surface)" stroke-width="2" />
+            <text x="${cx}" y="${cy + 3.5}" text-anchor="middle" font-size="9.5" font-weight="800" fill="#ffffff">${idea.num}</text>
+            <text x="${lx}" y="${cy + 3.5}" text-anchor="${labelAnchor}" font-size="10.5" font-weight="700" fill="var(--text-primary)">${idea.short}</text>
+          </g>
+        `;
+      });
+
+      svg.innerHTML = markup;
+      svg.querySelectorAll('[data-open-id]').forEach((el) => {
+        el.addEventListener('click', () => openDetail(el.dataset.openId));
+        el.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openDetail(el.dataset.openId);
+          }
+        });
+      });
+    }
+
+    // Top 3 recommendations panel
+    function renderTopPicks() {
+      const top3 = IDEAS.toSorted((a, b) => totalScore(b) - totalScore(a)).slice(0, 3);
+      $('topPicksList').innerHTML = top3.map((idea) => `
+        <li>
+          <strong style="color:var(--text-primary);">#${idea.num} ${idea.short}</strong>
+          <span class="pill" style="background:var(--accent-soft);color:var(--accent);margin-left:0.25rem;">${idea.primaryScheme} · ${totalScore(idea)}/100</span>
+          <div style="margin-top:0.15rem;">${idea.surabayaTarget}</div>
+        </li>
+      `).join('');
+    }
+
+    // Filter Chips
+    function renderClusterChips() {
+      $('clusterChips').innerHTML = CLUSTERS.map((c) => `
+        <button type="button" class="chip" aria-pressed="${activeCluster === c}" data-cluster="${c}">${c}</button>
+      `).join('');
+      $('clusterChips').querySelectorAll('button').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          activeCluster = btn.dataset.cluster;
+          renderClusterChips();
+          renderCards();
+        });
+      });
+    }
+
+    function getFilteredIdeas() {
+      const scheme = $('schemeFilter').value;
+      const sort = $('sortSelect').value;
+      const q = $('searchInput').value.trim().toLowerCase();
+
+      return IDEAS.filter((i) => {
+        if (activeCluster !== 'Semua' && i.cluster !== activeCluster) return false;
+        if (scheme !== 'ALL' && !i.schemes.includes(scheme) && !(scheme === 'PKM-PM' && i.schemes.includes('PKM-PI'))) return false;
+        if (!q) return true;
+        return (
+          i.title.toLowerCase().includes(q) ||
+          i.short.toLowerCase().includes(q) ||
+          i.problem.toLowerCase().includes(q) ||
+          i.solution.toLowerCase().includes(q) ||
+          i.surabayaTarget.toLowerCase().includes(q) ||
+          i.existing.toLowerCase().includes(q) ||
+          i.innovationGap.toLowerCase().includes(q)
+        );
+      }).toSorted((a, b) => {
+        if (sort === 'impact') return b.impact - a.impact;
+        if (sort === 'surabaya') return b.surabaya - a.surabaya;
+        if (sort === 'fit') return b.fitTeam - a.fitTeam;
+        return totalScore(b) - totalScore(a);
+      });
+    }
+
+    function barHTML(label, val, color) {
+      return `
+        <div class="metric-row">
+          <div class="metric-top"><span>${label}</span><span>${val}%</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:${val}%;background:${color};"></div></div>
+        </div>
+      `;
+    }
+
+    function noveltyPillStyle(level) {
+      if (level === 'Kebaruan Tinggi') return 'background:rgb(16 185 129 / 0.16);color:#059669;';
+      if (level === 'Perlu Diferensiasi Tajam') return 'background:rgb(245 158 11 / 0.16);color:#d97706;';
+      return 'background:var(--bg-subtle);color:var(--text-secondary);';
+    }
+
+    function renderCards() {
+      const list = getFilteredIdeas();
+      renderMatrix(list);
+      const grid = $('cardsGrid');
+
+      if (list.length === 0) {
+        grid.innerHTML = `<div class="panel" style="grid-column:1/-1;text-align:center;color:var(--text-muted);">Tidak ada kandidat yang cocok dengan filter tersebut.</div>`;
+        return;
+      }
+
+      grid.innerHTML = list.map((idea) => {
+        const picked = shortlisted.has(idea.id);
+        const score = totalScore(idea);
+        return `
+          <article class="idea-card" data-shortlisted="${picked}">
+            <header>
+              <div class="card-badges">
+                <div class="badge-group">
+                  <span class="pill" style="background:${idea.color}22;color:${idea.color};">#${idea.num} ${idea.primaryScheme}</span>
+                  <span class="pill" style="${noveltyPillStyle(idea.noveltyLevel)}">${idea.noveltyLevel}</span>
+                </div>
+                <span class="pill" style="background:var(--accent-soft);color:var(--accent);">Skor ${score}</span>
+              </div>
+              <h3>${idea.title}</h3>
+            </header>
+
+            <div class="card-content">
+              <div class="kv-box">
+                <strong>Problem &amp; Data Nyata</strong>
+                ${idea.problem}
+              </div>
+              <div class="kv-box">
+                <strong>Wujud Solusi &amp; Validasi Surabaya</strong>
+                ${idea.solution}<br /><span style="color:var(--text-muted);">📍 ${idea.surabayaTarget}</span>
+              </div>
+              <div class="metrics-bars">
+                ${barHTML('Dampak Keluarga', idea.impact, idea.color)}
+                ${barHTML('Akses Surabaya', idea.surabaya, idea.color)}
+                ${barHTML('Wujud 1:1', idea.readiness1to1, idea.color)}
+                ${barHTML('Fit Tim & Dospem', idea.fitTeam, idea.color)}
+              </div>
+            </div>
+
+            <footer>
+              <label class="shortlist-toggle">
+                <input type="checkbox" data-shortlist-id="${idea.id}" ${picked ? 'checked' : ''} />
+                <span>Masuk Shortlist</span>
+              </label>
+              <div style="display:flex;gap:0.4rem;">
+                <button type="button" class="btn" data-copy-id="${idea.id}" title="Salin teks siap Ctrl+V ke Idea Studio">Salin</button>
+                <button type="button" class="btn btn-solid" data-detail-id="${idea.id}">Bedah Detail</button>
+              </div>
+            </footer>
+          </article>
+        `;
+      }).join('');
+
+      grid.querySelectorAll('[data-shortlist-id]').forEach((cb) => {
+        cb.addEventListener('change', () => {
+          const id = cb.dataset.shortlistId;
+          if (cb.checked) shortlisted.add(id);
+          else shortlisted.delete(id);
+          renderCards();
+          updateShortlistDock();
+        });
+      });
+
+      grid.querySelectorAll('[data-detail-id]').forEach((btn) => {
+        btn.addEventListener('click', () => openDetail(btn.dataset.detailId));
+      });
+
+      grid.querySelectorAll('[data-copy-id]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const idea = IDEAS.find((i) => i.id === btn.dataset.copyId);
+          if (idea) copyIdeaSticky(idea);
+        });
+      });
+    }
+
+    async function copyIdeaSticky(idea) {
+      const text = `[${idea.primaryScheme}] ${idea.title}\n\nProblem: ${idea.problem}\nSolusi: ${idea.solution}\nCelah Kebaruan: ${idea.innovationGap}\nValidasi Surabaya: ${idea.surabayaTarget}`;
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast(`Disalin! Tekan Ctrl+V di Idea Studio untuk tempel "${idea.short}"`);
+      } catch {
+        showToast('Gagal mengakses clipboard browser.');
+      }
+    }
+
+    function openDetail(id) {
+      const idea = IDEAS.find((i) => i.id === id);
+      if (!idea) return;
+      $('dialogBadges').innerHTML = `
+        <span class="pill" style="background:${idea.color}22;color:${idea.color};">#${idea.num} ${idea.schemes.join(' / ')}</span>
+        <span class="pill" style="${noveltyPillStyle(idea.noveltyLevel)}">${idea.noveltyLevel}</span>
+        <span class="pill" style="background:var(--bg-subtle);color:var(--text-secondary);">${idea.tema}</span>
+        <span class="pill" style="background:var(--bg-subtle);color:var(--text-secondary);">Lomba lain: ${idea.otherComps}</span>
+      `;
+      $('dialogTitle').textContent = idea.title;
+      $('dialogBody').innerHTML = `
+        <div class="detail-grid">
+          <div class="detail-box">
+            <h4>1. Problem &amp; Urgensi (Data 2025–2026)</h4>
+            <p>${idea.problem}</p>
+          </div>
+          <div class="detail-box">
+            <h4>2. Wujud Solusi &amp; Produk 1:1</h4>
+            <p>${idea.solution}</p>
+          </div>
+        </div>
+        <div class="detail-box">
+          <h4>3. Target Pengguna &amp; Objek Validasi Surabaya</h4>
+          <p>${idea.surabayaTarget}</p>
+        </div>
+        <div class="detail-box" style="border-color:var(--accent);">
+          <h4>4. Audit Kebaruan: Sudah Ada di Pasaran vs Celah Inovasi</h4>
+          <p style="margin-bottom:0.4rem;"><strong>Produk / PKM Eksisting:</strong> ${idea.existing}</p>
+          <p><strong>Celah Kebaruan &amp; Kelayakan:</strong> ${idea.innovationGap}</p>
+        </div>
+        <div class="detail-grid">
+          <div class="detail-box">
+            <h4>Ukur: Realitas</h4>
+            <p>${idea.measurability.realitas}</p>
+          </div>
+          <div class="detail-box">
+            <h4>Ukur: Teknis</h4>
+            <p>${idea.measurability.teknis}</p>
+          </div>
+          <div class="detail-box">
+            <h4>Ukur: Teori &amp; Standar</h4>
+            <p>${idea.measurability.teori}</p>
+          </div>
+        </div>
+        <div class="detail-box" style="border-color:rgb(245 158 11 / 0.45);">
+          <h4 style="color:#d97706;">Catatan Kritis Reviewer &amp; Mitigasi</h4>
+          <p>${idea.risks}</p>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:0.5rem;">
+          <button type="button" id="modalCopyBtn" class="btn btn-solid">Salin untuk Paste ke Idea Studio (Ctrl+V)</button>
+        </div>
+      `;
+      $('modalCopyBtn').addEventListener('click', () => copyIdeaSticky(idea));
+      $('detailDialog').showModal();
+    }
+
+    function updateShortlistDock() {
+      const dock = $('shortlistDock');
+      if (shortlisted.size === 0) {
+        dock.hidden = true;
+        return;
+      }
+      dock.hidden = false;
+      const names = IDEAS.filter((i) => shortlisted.has(i.id)).map((i) => `#${i.num} ${i.short}`);
+      $('shortlistLabel').textContent = `Shortlist (${shortlisted.size}): ${names.join(', ')}`;
+    }
+
+    $('closeDialogBtn').addEventListener('click', () => $('detailDialog').close());
+    $('detailDialog').addEventListener('click', (e) => {
+      const r = $('detailDialog').getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) {
+        $('detailDialog').close();
+      }
+    });
+
+    $('copyShortlistBtn').addEventListener('click', async () => {
+      const picked = IDEAS.filter((i) => shortlisted.has(i.id));
+      const md = picked.map((i, idx) => `${idx + 1}. [${i.primaryScheme}] ${i.title}\n   - Problem: ${i.problem}\n   - Solusi: ${i.solution}\n   - Validasi: ${i.surabayaTarget}`).join('\n\n');
+      try {
+        await navigator.clipboard.writeText(md);
+        showToast(`Shortlist ${picked.length} ide disalin ke clipboard!`);
+      } catch {
+        showToast('Gagal menyalin ke clipboard.');
+      }
+    });
+
+    $('clearShortlistBtn').addEventListener('click', () => {
+      shortlisted.clear();
+      renderCards();
+      updateShortlistDock();
+    });
+
+    $('schemeFilter').addEventListener('change', renderCards);
+    $('sortSelect').addEventListener('change', renderCards);
+    $('searchInput').addEventListener('input', renderCards);
+
+    renderTopPicks();
+    renderClusterChips();
+    renderCards();
+  </script>
+</body>
+</html>
+
