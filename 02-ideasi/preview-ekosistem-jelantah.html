@@ -1,0 +1,1558 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <script>
+    (function () {
+      try {
+        var s = localStorage.getItem('jelantah-deck-scheme');
+        if (s === 'light' || s === 'dark') {
+          document.querySelector('meta[name="color-scheme"]').content = s;
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <title>Pitch Deck — Ekosistem Sirkular Jelantah UMKM (PKM-KI 2027)</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg-canvas: #f4f7f5;
+      --bg-surface: #ffffff;
+      --bg-subtle: #ebf1ee;
+      --border: #d8e2dc;
+      --border-strong: #b6c6bd;
+      --text-primary: #0f1914;
+      --text-secondary: #4a5a52;
+      --text-muted: #6e8077;
+      --brand: #059669;
+      --brand-soft: rgb(5 150 105 / 0.13);
+      --amber: #d97706;
+      --amber-soft: rgb(217 119 6 / 0.14);
+      --danger: #dc2626;
+      --danger-soft: rgb(220 38 38 / 0.13);
+      --btn-bg: #0f1914;
+      --btn-fg: #ffffff;
+      --shadow-card: 0 12px 34px rgb(15 25 20 / 0.08);
+      --shadow-sm: 0 2px 8px rgb(15 25 20 / 0.06);
+
+      @media (prefers-color-scheme: dark) {
+        --bg-canvas: #090e0c;
+        --bg-surface: #111915;
+        --bg-subtle: #18231e;
+        --border: #24332c;
+        --border-strong: #374c42;
+        --text-primary: #eef5f1;
+        --text-secondary: #a4b8ae;
+        --text-muted: #768b81;
+        --brand: #34d399;
+        --brand-soft: rgb(52 211 153 / 0.15);
+        --amber: #fbbf24;
+        --amber-soft: rgb(251 191 36 / 0.15);
+        --danger: #f87171;
+        --danger-soft: rgb(248 113 113 / 0.16);
+        --btn-bg: #eef5f1;
+        --btn-fg: #090e0c;
+        --shadow-card: 0 16px 40px rgb(0 0 0 / 0.5);
+        --shadow-sm: 0 2px 8px rgb(0 0 0 / 0.35);
+      }
+
+      @supports (color: light-dark(white, black)) {
+        --bg-canvas: light-dark(#f4f7f5, #090e0c);
+        --bg-surface: light-dark(#ffffff, #111915);
+        --bg-subtle: light-dark(#ebf1ee, #18231e);
+        --border: light-dark(#d8e2dc, #24332c);
+        --border-strong: light-dark(#b6c6bd, #374c42);
+        --text-primary: light-dark(#0f1914, #eef5f1);
+        --text-secondary: light-dark(#4a5a52, #a4b8ae);
+        --text-muted: light-dark(#6e8077, #768b81);
+        --brand: light-dark(#059669, #34d399);
+        --brand-soft: light-dark(rgb(5 150 105 / 0.13), rgb(52 211 153 / 0.15));
+        --amber: light-dark(#d97706, #fbbf24);
+        --amber-soft: light-dark(rgb(217 119 6 / 0.14), rgb(251 191 36 / 0.15));
+        --danger: light-dark(#dc2626, #f87171);
+        --danger-soft: light-dark(rgb(220 38 38 / 0.13), rgb(248 113 113 / 0.16));
+        --btn-bg: light-dark(#0f1914, #eef5f1);
+        --btn-fg: light-dark(#ffffff, #090e0c);
+      }
+
+      &:has(> head > meta[name="color-scheme"][content="dark"]) {
+        color-scheme: dark;
+      }
+      &:has(> head > meta[name="color-scheme"][content="light"]) {
+        color-scheme: light;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100dvh;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background-color: var(--bg-canvas);
+      color: var(--text-primary);
+      line-height: 1.45;
+      accent-color: var(--brand);
+    }
+
+    /* Deck Shell */
+    .deck-app {
+      min-height: 100dvh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    /* Progress Bar */
+    .progress-rail {
+      position: fixed;
+      inset: 0 0 auto;
+      height: 3px;
+      background: var(--border);
+      z-index: 50;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 10%;
+      background: var(--brand);
+      transition: width 220ms ease;
+    }
+
+    /* Top Chrome */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.75rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-surface);
+    }
+
+    .brand-mark {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      font-weight: 800;
+      font-size: 0.85rem;
+      letter-spacing: -0.01em;
+    }
+
+    .brand-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--brand);
+      box-shadow: 0 0 0 4px var(--brand-soft);
+    }
+
+    .slide-dots {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .slide-dots::-webkit-scrollbar { display: none; }
+
+    .dot-btn {
+      padding: 0.3rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-muted);
+      font: inherit;
+      font-size: 0.74rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background-color 140ms ease, color 140ms ease;
+    }
+
+    .dot-btn:hover {
+      background: var(--bg-subtle);
+      color: var(--text-primary);
+    }
+
+    .dot-btn[aria-current="step"] {
+      background: var(--brand-soft);
+      color: var(--brand);
+      border-color: var(--brand);
+    }
+
+    .top-tools {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.42rem 0.85rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      font: inherit;
+      font-size: 0.76rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn:hover {
+      background: var(--bg-subtle);
+      border-color: var(--border-strong);
+    }
+
+    .btn-solid {
+      background: var(--btn-bg);
+      color: var(--btn-fg);
+      border-color: transparent;
+    }
+
+    .btn-solid:hover {
+      background: var(--btn-bg);
+      opacity: 0.88;
+    }
+
+    /* Theme label branching */
+    .theme-opt-light { display: none; }
+    .theme-opt-dark { display: inline; }
+    @media (prefers-color-scheme: dark) {
+      :root:not(:has(> head > meta[name="color-scheme"][content="light"])) .theme-opt-light { display: inline; }
+      :root:not(:has(> head > meta[name="color-scheme"][content="light"])) .theme-opt-dark { display: none; }
+    }
+    :root:has(> head > meta[name="color-scheme"][content="dark"]) .theme-opt-light { display: inline; }
+    :root:has(> head > meta[name="color-scheme"][content="dark"]) .theme-opt-dark { display: none; }
+
+    /* Stage */
+    .stage {
+      display: grid;
+      place-items: center;
+      padding: 1.25rem 1.5rem;
+    }
+
+    .slide {
+      display: none;
+      width: min(1160px, 100%);
+      min-height: min(620px, calc(100dvh - 155px));
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 1.5rem;
+      padding: clamp(1.35rem, 3vw, 2.35rem);
+      box-shadow: var(--shadow-card);
+      align-content: center;
+      gap: 1.35rem;
+    }
+
+    .slide.is-active {
+      display: grid;
+    }
+
+    .slide-head {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      width: fit-content;
+      padding: 0.22rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: var(--brand-soft);
+      color: var(--brand);
+    }
+
+    .tag-amber { background: var(--amber-soft); color: var(--amber); }
+    .tag-red { background: var(--danger-soft); color: var(--danger); }
+    .tag-neutral { background: var(--bg-subtle); color: var(--text-secondary); }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.75rem, 3.6vw, 2.7rem);
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      line-height: 1.12;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: clamp(1.35rem, 2.6vw, 2rem);
+      font-weight: 850;
+      letter-spacing: -0.025em;
+      line-height: 1.18;
+    }
+
+    h3 {
+      margin: 0;
+      font-size: 0.98rem;
+      font-weight: 800;
+    }
+
+    .lead {
+      margin: 0;
+      font-size: clamp(0.9rem, 1.3vw, 1.05rem);
+      color: var(--text-secondary);
+      max-width: 60ch;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.95fr);
+      gap: 1.5rem;
+      align-items: center;
+    }
+
+    .split-visual {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.85fr);
+      gap: 1.35rem;
+      align-items: center;
+    }
+
+    @media (max-width: 860px) {
+      .split, .split-visual {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Big Stat Cards */
+    .stats-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.85rem;
+    }
+
+    @media (max-width: 720px) {
+      .stats-3 { grid-template-columns: 1fr; }
+    }
+
+    .stat-card {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 1.05rem;
+      padding: 1rem 1.1rem;
+    }
+
+    .stat-num {
+      font-size: clamp(1.4rem, 2.4vw, 1.95rem);
+      font-weight: 900;
+      letter-spacing: -0.025em;
+      color: var(--brand);
+      line-height: 1.1;
+    }
+
+    .stat-lbl {
+      margin-top: 0.3rem;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .stat-sub {
+      margin-top: 0.15rem;
+      font-size: 0.76rem;
+      color: var(--text-secondary);
+    }
+
+    /* 3D Render Frame + Interactive Hotspots */
+    .render-frame {
+      position: relative;
+      border-radius: 1.15rem;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #e9ecea;
+      aspect-ratio: 16 / 9;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .render-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .pin {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 2.5px solid #ffffff;
+      background: var(--brand);
+      color: #ffffff;
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 900;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 4px 14px rgb(0 0 0 / 0.35);
+      transition: transform 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+      z-index: 5;
+    }
+
+    .pin:hover {
+      transform: translate(-50%, -50%) scale(1.12);
+    }
+
+    .pin[aria-pressed="true"] {
+      background: #0f1914;
+      box-shadow: 0 0 0 5px rgb(5 150 105 / 0.45), 0 6px 16px rgb(0 0 0 / 0.4);
+      transform: translate(-50%, -50%) scale(1.16);
+    }
+
+    .detail-card {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--brand);
+      border-radius: 1rem;
+      padding: 1.1rem 1.2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+
+    .detail-card p {
+      margin: 0;
+      font-size: 0.86rem;
+      color: var(--text-secondary);
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .chip {
+      padding: 0.36rem 0.75rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+      font: inherit;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .chip:hover {
+      border-color: var(--border-strong);
+      color: var(--text-primary);
+    }
+
+    .chip[aria-pressed="true"] {
+      background: var(--brand);
+      color: #ffffff;
+      border-color: transparent;
+    }
+
+    /* Root Cause Pills List (ultra concise) */
+    .rc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .rc-item {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 0.95rem;
+      padding: 0.9rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .rc-item .prob {
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: var(--danger);
+    }
+
+    .rc-item .sol {
+      font-size: 0.8rem;
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    /* Live Simulator */
+    .oled-panel {
+      background: #101814;
+      color: #edf5f1;
+      border-radius: 1.15rem;
+      padding: 1.15rem;
+      border: 2px solid #263930;
+    }
+
+    .oled-box {
+      background: #060d09;
+      border: 1.5px solid #22352c;
+      border-radius: 0.75rem;
+      padding: 0.95rem 1.1rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .oled-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.74rem;
+      color: #77c7a5;
+    }
+
+    .oled-val {
+      font-size: 2.15rem;
+      font-weight: 900;
+      margin: 0.25rem 0 0.1rem;
+      line-height: 1.1;
+    }
+
+    .oled-msg {
+      font-size: 0.84rem;
+      font-weight: 700;
+    }
+
+    .lamps {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 0.85rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid #22352c;
+    }
+
+    .lamp-set {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .lamp {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      opacity: 0.2;
+      transition: opacity 150ms ease, box-shadow 150ms ease;
+    }
+    .lamp.on { opacity: 1; }
+    .lamp-g { background: #10b981; }
+    .lamp-g.on { box-shadow: 0 0 14px #10b981; }
+    .lamp-y { background: #f59e0b; }
+    .lamp-y.on { box-shadow: 0 0 14px #f59e0b; }
+    .lamp-r { background: #ef4444; }
+    .lamp-r.on { box-shadow: 0 0 14px #ef4444; }
+
+    .sliders {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+
+    .slider-row label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      font-weight: 700;
+      margin-bottom: 0.2rem;
+    }
+
+    .slider-row input[type="range"] {
+      width: 100%;
+      cursor: pointer;
+    }
+
+    @supports not (accent-color: #059669) {
+      input[type="range"] {
+        -webkit-appearance: none;
+        appearance: none;
+        background: transparent;
+      }
+      input[type="range"]::-webkit-slider-runnable-track {
+        height: 7px;
+        border-radius: 999px;
+        background: linear-gradient(to right, var(--brand) var(--progress, 50%), var(--border-strong) var(--progress, 50%));
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--brand);
+        margin-top: -4.5px;
+      }
+    }
+
+    .vs-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.7rem;
+      margin-top: 0.8rem;
+    }
+
+    @media (max-width: 560px) {
+      .vs-row { grid-template-columns: 1fr; }
+    }
+
+    .vs-box {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 0.85rem;
+      padding: 0.75rem 0.9rem;
+      font-size: 0.79rem;
+    }
+
+    .vs-box strong {
+      display: block;
+      font-size: 0.69rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      margin-bottom: 0.25rem;
+    }
+
+    /* Timeline 5 steps */
+    .steps-5 {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 0.65rem;
+    }
+
+    @media (max-width: 820px) {
+      .steps-5 { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+    }
+
+    .step-card {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 0.95rem;
+      padding: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .step-badge {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--brand);
+      color: #ffffff;
+      font-size: 0.74rem;
+      font-weight: 900;
+      display: grid;
+      place-items: center;
+    }
+
+    .step-card p {
+      margin: 0;
+      font-size: 0.77rem;
+      color: var(--text-secondary);
+    }
+
+    /* Compact Table */
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 0.9rem;
+      container-type: inline-size;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 0.78rem;
+    }
+
+    th, td {
+      padding: 0.55rem 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    thead th {
+      background: var(--bg-subtle);
+      font-size: 0.69rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+    }
+
+    tbody tr:last-child th,
+    tbody tr:last-child td { border-bottom: 0; }
+
+    /* BoM Bars */
+    .bom-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .bom-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.3rem 0.75rem;
+      font-size: 0.78rem;
+      align-items: center;
+    }
+
+    .bom-track {
+      grid-column: 1 / -1;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--bg-subtle);
+      overflow: hidden;
+    }
+
+    .bom-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: var(--brand);
+    }
+
+    /* Footer Controls */
+    .bottombar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.75rem 1.5rem;
+      border-top: 1px solid var(--border);
+      background: var(--bg-surface);
+    }
+
+    .kbd-hint {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+    }
+
+    kbd {
+      padding: 0.12rem 0.4rem;
+      border-radius: 0.35rem;
+      border: 1px solid var(--border-strong);
+      background: var(--bg-subtle);
+      font-family: inherit;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+  </style>
+</head>
+<body>
+  <div class="progress-rail" aria-hidden="true"><div id="progressFill" class="progress-fill"></div></div>
+
+  <div class="deck-app">
+    <header class="topbar">
+      <div class="brand-mark">
+        <span class="brand-dot" aria-hidden="true"></span>
+        <span>PKM-KI 2027 · Ekosistem Jelantah UMKM</span>
+      </div>
+
+      <nav class="slide-dots" id="slideDots" aria-label="Pilih slide presentasi"></nav>
+
+      <div class="top-tools">
+        <button type="button" id="fsBtn" class="btn" title="Layar penuh">⛶ Fullscreen</button>
+        <button type="button" id="themeToggle" class="btn">
+          <span class="theme-opt-dark">🌙 Gelap</span>
+          <span class="theme-opt-light">☀️ Terang</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="stage">
+      <!-- SLIDE 1: COVER & VISUAL HERO -->
+      <section class="slide is-active" data-title="1. Intro">
+        <div class="split">
+          <div style="display:flex;flex-direction:column;gap:1rem;">
+            <span class="tag">PKM-KI 2027 · Tema Lingkungan &amp; UMKM</span>
+            <h1>Ekosistem Sirkular &amp; <em>Cyber-Physical</em> Minyak Jelantah UMKM</h1>
+            <p class="lead">
+              Menghubungkan <strong>alat uji kelayakan minyak terjangkau</strong> di wajan gorengan langsung dengan <strong>penarikan jelantah bersih</strong> untuk rantai pasok Biodiesel/SAF.
+            </p>
+            <div class="stats-3">
+              <div class="stat-card">
+                <div class="stat-num">Rp495rb</div>
+                <div class="stat-lbl">BoM Probe Hibrida</div>
+                <div class="stat-sub">97% lebih hemat vs Testo 270</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-num">Rp0</div>
+                <div class="stat-lbl">Modal Pedagang</div>
+                <div class="stat-sub">Pinjam pakai gratis</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-num">MIU &lt;2%</div>
+                <div class="stat-lbl">Jelantah Bersih</div>
+                <div class="stat-sub">Saring 2-tahap + log ISCC</div>
+              </div>
+            </div>
+          </div>
+          <div class="render-frame">
+            <img src="./assets/gerobak-ekosistem-3d.jpg" alt="Visual 3D gerobak gorengan UMKM dilengkapi stiker kepercayaan QR, Probe TPM, dan Corong Pre-Filter di kolong gerobak" />
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 2: MASALAH & 5 AKAR PENYEBAB -->
+      <section class="slide" data-title="2. Masalah">
+        <div class="slide-head">
+          <span class="tag tag-red">Problem-First · Fakta Lapangan 2025–2026</span>
+          <h2>Sudah Ada Sosialisasi &amp; Pengepul, Tapi Kenapa UMKM Tetap Tidak Ikut?</h2>
+          <p class="lead">3 dampak besar terjadi bersamaan karena 5 hambatan nyata di gerobak gorengan belum pernah dipecahkan secara utuh.</p>
+        </div>
+
+        <div class="stats-3">
+          <div class="stat-card">
+            <div class="stat-num" style="color:var(--danger);">TPM &gt;24%</div>
+            <div class="stat-lbl">Bahaya Kesehatan</div>
+            <div class="stat-sub">Minyak dipakai berulang tanpa alat uji; Testo 270 Rp16–19 jt.</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num" style="color:var(--amber);">Fatberg</div>
+            <div class="stat-lbl">Sumbat Drainase Kota</div>
+            <div class="stat-sub">Jelantah dibuang ke got memicu pencemaran &amp; banjir.</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num" style="color:var(--brand);">5 Celah</div>
+            <div class="stat-lbl">UCOllect &amp; Pengepul Gagal</div>
+            <div class="stat-sub">Tolak endapan tepung, harus angkut ke SPBU, kalah dari tengkulak.</div>
+          </div>
+        </div>
+
+        <div class="rc-grid">
+          <div class="rc-item">
+            <span class="prob">1. Kebiasaan Top-Up</span>
+            <span class="sol">→ Probe buktikan %TPM tetap naik; bidik UMKM <em>deep-fry</em> rutin kuras 3–15 L/mg.</span>
+          </div>
+          <div class="rc-item">
+            <span class="prob">2. Rasa Rugi Margin</span>
+            <span class="sol">→ Pinjam alat Rp0 + Stiker Trust Badge + tukar minyak baru harga grosir.</span>
+          </div>
+          <div class="rc-item">
+            <span class="prob">3. Patokan Kasat Mata</span>
+            <span class="sol">→ Sensor dielektrik akurat di minyak berbumbu (tidak buang terlalu cepat).</span>
+          </div>
+          <div class="rc-item">
+            <span class="prob">4. Repot &amp; Takut Dites</span>
+            <span class="sol">→ Saring di kolong gerobak + jemput kolektif; hasil tes internal privat.</span>
+          </div>
+          <div class="rc-item">
+            <span class="prob">5. Takut Oplosan</span>
+            <span class="sol">→ Traceability QR langsung ke pengepul resmi Biodiesel/SAF (ISCC).</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 3: SOLUSI 1 - PROBE TPM 3D + INTERACTIVE HOTSPOTS -->
+      <section class="slide" data-title="3. Probe 3D">
+        <div class="slide-head">
+          <span class="tag">Komponen 1 · Hardware 1:1 (Klik Nomor di Gambar!)</span>
+          <h2>Probe TPM Hibrida: Akurat di Minyak Berbumbu, Harga Rp495rb</h2>
+        </div>
+
+        <div class="split-visual">
+          <div class="render-frame" id="probeCanvas">
+            <img src="./assets/probe-tpm-3d.jpg" alt="Render 3D Probe TPM Hibrida dengan ujung sensor kapasitif emas, batang stainless, layar OLED, dan LED 3-warna" />
+            <button type="button" class="pin" data-probe="tip" aria-pressed="true" style="left:11%;top:82%;" aria-label="1. Ujung Sensor Hibrida">1</button>
+            <button type="button" class="pin" data-probe="shaft" aria-pressed="false" style="left:34%;top:58%;" aria-label="2. Batang Stainless MIN-MAX">2</button>
+            <button type="button" class="pin" data-probe="baffle" aria-pressed="false" style="left:51%;top:48%;" aria-label="3. Pelindung Panas Silikon">3</button>
+            <button type="button" class="pin" data-probe="oled" aria-pressed="false" style="left:69%;top:31%;" aria-label="4. Layar OLED dan LED">4</button>
+            <button type="button" class="pin" data-probe="mcu" aria-pressed="false" style="left:78%;top:44%;" aria-label="5. ESP32 dan Batch-Sync">5</button>
+            <button type="button" class="pin" data-probe="power" aria-pressed="false" style="left:87%;top:19%;" aria-label="6. Baterai dan USB-C">6</button>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:0.85rem;">
+            <div class="chip-row" id="probeChips"></div>
+            <div class="detail-card" id="probeDetail" aria-live="polite"></div>
+            <div class="stat-card" style="padding:0.75rem 1rem;">
+              <div style="font-size:0.76rem;font-weight:800;color:var(--brand);">✓ Koreksi Teknis Penting:</div>
+              <div style="font-size:0.78rem;color:var(--text-secondary);margin-top:0.15rem;">Ukur di suhu hangat <strong>40°C–80°C</strong> (bukan 25°C agar sawit tidak mengental) + filter deteksi tetesan air + kalibrasi <em>Fresh Oil Zeroing</em>.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 4: LIVE SIMULATOR DEMO -->
+      <section class="slide" data-title="4. Demo Live">
+        <div class="slide-head">
+          <span class="tag">Demo Interaktif · Uji Skenario Langsung</span>
+          <h2>Buktikan Sendiri: Kenapa Sensor Hibrida Mengalahkan Sensor Optik Lama</h2>
+        </div>
+
+        <div class="split">
+          <div style="display:flex;flex-direction:column;gap:0.9rem;">
+            <div class="chip-row">
+              <button type="button" class="chip" data-preset="fresh" aria-pressed="false">Minyak Baru</button>
+              <button type="button" class="chip" data-preset="spiced" aria-pressed="true">Gelap Berbumbu (Layak!)</button>
+              <button type="button" class="chip" data-preset="damaged" aria-pressed="false">Rusak TPM &gt;24%</button>
+              <button type="button" class="chip" data-preset="cold" aria-pressed="false">Dingin &lt;40°C</button>
+              <button type="button" class="chip" data-preset="water" aria-pressed="false">Kena Air</button>
+            </div>
+
+            <div class="sliders">
+              <div class="slider-row">
+                <label for="slTemp"><span>Suhu Minyak (Aman: 40°C–80°C)</span><span id="valTemp">62°C</span></label>
+                <input type="range" id="slTemp" min="20" max="105" value="62" />
+              </div>
+              <div class="slider-row">
+                <label for="slTpm"><span>Kadar Polar Nyata (%TPM)</span><span id="valTpm">14%</span></label>
+                <input type="range" id="slTpm" min="4" max="34" value="14" />
+              </div>
+              <div class="slider-row">
+                <label for="slDark"><span>Kepekatan Warna Bumbu/Kecap</span><span id="valDark">84%</span></label>
+                <input type="range" id="slDark" min="5" max="100" value="84" />
+              </div>
+              <div class="slider-row">
+                <label for="slWater"><span>Kontaminasi Air Wajan</span><span id="valWater">0.0%</span></label>
+                <input type="range" id="slWater" min="0" max="30" value="0" />
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:0.75rem;">
+            <div class="oled-panel">
+              <div class="oled-box" aria-live="polite">
+                <div class="oled-meta">
+                  <span id="oledTemp">SUHU: 62°C</span>
+                  <span>OFFLINE LOG: 18/1000</span>
+                </div>
+                <div class="oled-val" id="oledTpm">14.7% TPM</div>
+                <div class="oled-msg" id="oledStatus">● MINYAK LAYAK PAKAI</div>
+              </div>
+              <div class="lamps">
+                <span id="ledText" style="font-size:0.8rem;font-weight:700;">LED Hijau — Aman &amp; Hemat Minyak</span>
+                <div class="lamp-set" aria-hidden="true">
+                  <span id="lampG" class="lamp lamp-g on"></span>
+                  <span id="lampY" class="lamp lamp-y"></span>
+                  <span id="lampR" class="lamp lamp-r"></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="vs-row">
+              <div class="vs-box">
+                <strong>Sensor Optik Lama (Warna Saja)</strong>
+                <div id="oldVerdict"></div>
+              </div>
+              <div class="vs-box" style="border-color:var(--brand);">
+                <strong style="color:var(--brand);">Probe Hibrida Kita</strong>
+                <div id="newVerdict"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 5: SOLUSI 2 - CORONG PRE-FILTER 3D -->
+      <section class="slide" data-title="5. Pre-Filter 3D">
+        <div class="slide-head">
+          <span class="tag tag-amber">Komponen 2 · Logistik Kolong Gerobak (Klik Nomor!)</span>
+          <h2>Corong <em>Pre-Filter</em> 2-Tahap: Nol Listrik, Jelantah Langsung MIU &lt; 2%</h2>
+        </div>
+
+        <div class="split-visual">
+          <div class="render-frame">
+            <img src="./assets/prefilter-3d.jpg" alt="Render 3D cutaway Corong Pre-Filter 2-Tahap dengan saringan 40-mesh, 100-mesh, pengunci ulir, dan jeriken 10L ber-QR" />
+            <button type="button" class="pin" data-filter="mesh40" aria-pressed="true" style="left:50%;top:20%;" aria-label="1. Saringan 40-Mesh">1</button>
+            <button type="button" class="pin" data-filter="mesh100" aria-pressed="false" style="left:50%;top:40%;" aria-label="2. Saringan 100-Mesh">2</button>
+            <button type="button" class="pin" data-filter="collar" aria-pressed="false" style="left:50%;top:53%;" aria-label="3. Pengunci Ulir Anti-Tumpah">3</button>
+            <button type="button" class="pin" data-filter="qrtag" aria-pressed="false" style="left:43%;top:74%;" aria-label="4. Jeriken 10L dan Tag QR">4</button>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:0.85rem;">
+            <div class="chip-row" id="filterChips"></div>
+            <div class="detail-card" style="border-left-color:var(--amber);" id="filterDetail" aria-live="polite"></div>
+            <div class="stats-3" style="grid-template-columns:1fr 1fr;">
+              <div class="stat-card" style="padding:0.75rem 0.9rem;">
+                <div class="stat-num" style="font-size:1.3rem;">±Rp85rb</div>
+                <div class="stat-sub">Biaya per set gerobak</div>
+              </div>
+              <div class="stat-card" style="padding:0.75rem 0.9rem;">
+                <div class="stat-num" style="font-size:1.3rem;">≥90%</div>
+                <div class="stat-sub">Kerak tepung tertahan</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 6: ARSITEKTUR INTERNAL & PIN MAP -->
+      <section class="slide" data-title="6. Arsitektur Dalam">
+        <div class="slide-head">
+          <span class="tag">Bedah Bagian Dalam · Klik Subsistem A–D atau Nomor!</span>
+          <h2>Arsitektur Internal Probe: Dari Elektroda Celup ke ESP32-C3</h2>
+        </div>
+
+        <div class="split-visual">
+          <div class="render-frame">
+            <img src="./assets/probe-internal-exploded-3d.jpg" alt="Exploded view 3D bagian dalam Probe TPM Hibrida: shell PETG, PCB utama ESP32-C3, baterai 18650, cincin silikon, batang stainless, dan elektroda ujung" />
+            <button type="button" class="pin" data-arch="cap" aria-pressed="true" style="left:16%;top:83%;" aria-label="A. Front-End Kapasitif dan Elektroda Celup">A</button>
+            <button type="button" class="pin" data-arch="env" aria-pressed="false" style="left:36%;top:69%;" aria-label="B. Sensor Suhu dan Jalur Kabel Terlindung">B</button>
+            <button type="button" class="pin" data-arch="mcu" aria-pressed="false" style="left:71%;top:36%;" aria-label="C. Mainboard PCB ESP32-C3 dan RTC">C</button>
+            <button type="button" class="pin" data-arch="pwr" aria-pressed="false" style="left:71%;top:49%;" aria-label="D. Baterai 18650 dan Casing PETG">D</button>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:0.8rem;">
+            <div class="chip-row" id="archChips"></div>
+            <div class="detail-card" id="archDetail" aria-live="polite"></div>
+            <div class="table-wrap" tabindex="0" role="region" aria-label="Pemetaan pin ESP32-C3">
+              <table>
+                <thead>
+                  <tr><th>Subsistem</th><th>Pin ESP32-C3</th><th>Peran</th></tr>
+                </thead>
+                <tbody>
+                  <tr><th>Kapasitif</th><td><code>GPIO 4 (PCNT)</code></td><td>Baca frekuensi <code>TLC555</code> (100% lokal)</td></tr>
+                  <tr><th>Suhu + Optik</th><td><code>GPIO 5</code> · <code>I2C</code></td><td><code>DS18B20</code> ATC + kekeruhan <code>TSL2561</code></td></tr>
+                  <tr><th>Otak + RTC</th><td><code>I2C (8/9)</code> · Flash</td><td>Hitung %TPM + 1.000 log <code>DS3231</code></td></tr>
+                  <tr><th>UI + Daya</th><td><code>GPIO 2,3,6,7,10</code></td><td>OLED + LED H/K/M + 18650 USB-C</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 7: CARA RAKIT 100% LOKAL & LANDASAN JURNAL -->
+      <section class="slide" data-title="7. Rakit &amp; Jurnal">
+        <div class="slide-head">
+          <span class="tag tag-amber">Anti-Bottleneck · 100% Komponen Lokal + Bukti Jurnal</span>
+          <h2>Bisa Dirakit Sendiri Tanpa Impor, Berdiri di Atas Riset Ilmiah Nyata</h2>
+        </div>
+
+        <div class="split">
+          <div style="display:flex;flex-direction:column;gap:0.75rem;">
+            <h3>4 Langkah Rakit Nyata (Surabaya / Tokopedia):</h3>
+            <div class="rc-item">
+              <span class="prob" style="color:var(--brand);">1. Desain &amp; Cetak 3D Casing</span>
+              <span class="sol">Desain di <strong>Tinkercad / Onshape</strong> → cetak PETG di jasa 3D Print Sby (<em>3D Zaiku / Evolusi 3D</em>, ±Rp1.400/g ≈ <strong>Rp75rb</strong>).</span>
+            </div>
+            <div class="rc-item">
+              <span class="prob" style="color:var(--brand);">2. Elektroda Celup Tanpa Impor</span>
+              <span class="sol">Pakai <strong>pipa koaksial SS304 + spacer PTFE</strong> (toko teknik Sby) atau cetak PCB lokal (<em>Elmech / Sirkuitku / Raftech</em>).</span>
+            </div>
+            <div class="rc-item">
+              <span class="prob" style="color:var(--brand);">3. Pembaca Kapasitif Rp10rb (Bukan Impor)</span>
+              <span class="sol">Ganti <code>FDC1004</code> dengan <strong>IC <code>TLC555/NE555</code> + <code>ESP32 PCNT</code></strong> (BoM lokal jadi <strong>Rp375rb/unit</strong>; <code>FDC1004</code> via JLCPCB jadi opsi upgrade).</span>
+            </div>
+            <div class="rc-item">
+              <span class="prob" style="color:var(--brand);">4. Corong Pre-Filter + Kalibrasi Lab</span>
+              <span class="sol">Beli corong &amp; jaring 40/100-mesh + jeriken 10L jadi; cukup 3D print <em>adaptor ulir</em>. Kalibrasi 30 sampel vs <code>Testo 270</code>/FFA.</span>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:0.65rem;">
+            <h3>5 Acuan Jurnal Ilmiah Terverifikasi:</h3>
+            <div class="vs-box">
+              <strong>Jurnal ELKOM (2019, Indonesia) — Bukti Jalur Lokal IC 555!</strong>
+              Membuktikan rangkaian sederhana <strong>multivibrator IC 555</strong> berhasil membaca pergeseran konstanta dielektrik minyak goreng berdasar lama pemanasan.
+            </div>
+            <div class="vs-box">
+              <strong>MDPI <em>Sensors</em> &amp; Šegatin et al. (2020, MDPI <em>Foods</em>)</strong>
+              Alat portabel konstanta dielektrik &amp; momen dipol minyak goreng (uji 40 jam) berkorelasi tinggi (<strong>R² &gt; 0,90</strong>) terhadap kadar senyawa polar (TPM).
+            </div>
+            <div class="vs-box">
+              <strong>Elsevier <em>Info. Processing in Agriculture</em> (2015)</strong>
+              Menguji <em>capacitive sensor probe</em> (IDE) celup langsung untuk degradasi minyak goreng dan kalibrasinya terhadap <strong><code>Testo 270</code></strong> (<strong>R² ≈ 0,83–0,95</strong>).
+            </div>
+            <div class="vs-box">
+              <strong>Jurnal Fisika Papua (2023) &amp; Jurnal Litek (2023)</strong>
+              Mencatat lonjakan konstanta dielektrik minyak jelantah sawit (hingga <code>4,669</code> pada <code>100 Hz</code>) serta pemakaian sensor kapasitif pada bahan baku biodiesel.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 8: CLOSED-LOOP & POSISI PESAING -->
+      <section class="slide" data-title="8. Closed-Loop">
+        <div class="slide-head">
+          <span class="tag">Komponen 3 · Alur Sistem &amp; Posisi Pasar</span>
+          <h2>Siklus Tertutup Hulu–Hilir + Keunggulan Nyata atas Pesaing</h2>
+        </div>
+
+        <div class="steps-5">
+          <div class="step-card">
+            <span class="step-badge">1</span>
+            <h3>Uji 40–80°C</h3>
+            <p>Celup &lt;10 dtk; log offline tersimpan otomatis (<em>batch-sync</em>).</p>
+          </div>
+          <div class="step-card">
+            <span class="step-badge">2</span>
+            <h3>Saring 2-Tahap</h3>
+            <p>TPM ≥24% dituang lewat corong kolong gerobak (MIU &lt;2%).</p>
+          </div>
+          <div class="step-card">
+            <span class="step-badge">3</span>
+            <h3>Jemput Micro-Hub</h3>
+            <p>Agregasi 10–15 gerobak (≥100 L/mg) + sync Wi-Fi otomatis.</p>
+          </div>
+          <div class="step-card">
+            <span class="step-badge">4</span>
+            <h3>Tunai / Tukar</h3>
+            <p>Bayar QRIS/tunai di tempat atau tukar minyak baru grosir.</p>
+          </div>
+          <div class="step-card">
+            <span class="step-badge">5</span>
+            <h3>ISCC + Trust QR</h3>
+            <p>Data %TPM jadi bukti <em>anti-fraud</em> ISCC + stiker gerobak aktif.</p>
+          </div>
+        </div>
+
+        <div class="table-wrap" tabindex="0" role="region" aria-label="Perbandingan pesaing ringkas">
+          <table>
+            <thead>
+              <tr>
+                <th>Pesaing Eksisting</th>
+                <th>Harga / Model</th>
+                <th>Celah Utama</th>
+                <th>Jawaban Sistem Kita</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>Testo 270 / ATAGO</th>
+                <td>Rp11–19,5 jt</td>
+                <td>Mustahil dibeli UMKM</td>
+                <td><strong>BoM Rp375–495rb · Pinjam pakai Rp0</strong></td>
+              </tr>
+              <tr>
+                <th>UCOllect (Pertamina)</th>
+                <td>Rp4–6rb/L (SPBU)</td>
+                <td>Harus angkut ke SPBU; tolak kerak tepung</td>
+                <td><strong>Pre-Filter gerobak + jemput kolektif</strong></td>
+              </tr>
+              <tr>
+                <th>TUKR / Greenia</th>
+                <td>Rp5–7rb/L (Horeka)</td>
+                <td>Gerobak mikro terlalu kecil dijemput 1-1</td>
+                <td><strong>Micro-Hub agregator jadi pemasok mereka</strong></td>
+              </tr>
+              <tr>
+                <th>Tengkulak Informal</th>
+                <td>Tunai di gerobak</td>
+                <td>Nol ISCC, rawan minyak oplosan</td>
+                <td><strong>Tunai/tukar minyak + jalur resmi + Trust Badge</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- SLIDE 9: BOM & CALCULATOR -->
+      <section class="slide" data-title="9. Ekonomi">
+        <div class="slide-head">
+          <span class="tag">Model Bisnis Win-Win · Equipment Lending</span>
+          <h2>Rincian BoM (Lokal Rp375rb / Upgrade Rp495rb) &amp; Simulasi Balik Modal</h2>
+        </div>
+
+        <div class="split">
+          <div class="stat-card" style="padding:1.15rem 1.25rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem;gap:0.5rem;flex-wrap:wrap;">
+              <h3>Komponen 1 Unit Probe (Semua &lt; Rp1 jt)</h3>
+              <span class="tag">Lokal Rp375rb · FDC Rp495rb</span>
+            </div>
+            <div class="bom-bars">
+              <div class="bom-row"><span>Kapasitif: TLC555 Lokal (Rp15rb) / FDC1004 Upgrade (Rp135rb)</span><strong>Rp15rb–135rb</strong><div class="bom-track"><div class="bom-fill" style="width:27%;"></div></div></div>
+              <div class="bom-row"><span>Mekanik Probe SS304 + PTFE + Casing PETG Sby</span><strong>Rp110.000</strong><div class="bom-track"><div class="bom-fill" style="width:22%;"></div></div></div>
+              <div class="bom-row"><span>ESP32-C3 Super Mini + RTC DS3231</span><strong>Rp87.000</strong><div class="bom-track"><div class="bom-fill" style="width:18%;"></div></div></div>
+              <div class="bom-row"><span>Kanal Optik TSL2561 + Suhu DS18B20</span><strong>Rp73.000</strong><div class="bom-track"><div class="bom-fill" style="width:15%;"></div></div></div>
+              <div class="bom-row"><span>OLED 0,96" + LED 3-Warna + Buzzer</span><strong>Rp45.000</strong><div class="bom-track"><div class="bom-fill" style="width:9%;"></div></div></div>
+              <div class="bom-row"><span>Baterai 18650 2600mAh + USB-C TP4056</span><strong>Rp45.000</strong><div class="bom-track"><div class="bom-fill" style="width:9%;"></div></div></div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:0.9rem;">
+            <div class="sliders">
+              <div class="slider-row">
+                <label for="calcStalls"><span>Gerobak Binaan di Sentra</span><span id="calcStallsVal">15 gerobak</span></label>
+                <input type="range" id="calcStalls" min="6" max="60" step="3" value="15" />
+              </div>
+              <div class="slider-row">
+                <label for="calcLiters"><span>Jelantah / Gerobak / Minggu</span><span id="calcLitersVal">8 liter</span></label>
+                <input type="range" id="calcLiters" min="3" max="20" step="1" value="8" />
+              </div>
+              <div class="slider-row">
+                <label for="calcMargin"><span>Margin / Premi Bersih ISCC</span><span id="calcMarginVal">Rp1.250/L</span></label>
+                <input type="range" id="calcMargin" min="750" max="2000" step="250" value="1250" />
+              </div>
+            </div>
+
+            <div class="stats-3" style="grid-template-columns:1fr 1fr;">
+              <div class="stat-card">
+                <div class="stat-num" id="outVolume">480 L</div>
+                <div class="stat-sub">Jelantah bersih / bulan</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-num" id="outUmkm">Rp176rb</div>
+                <div class="stat-sub">Kas balik / UMKM / bln</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-num" id="outCapex" style="color:var(--text-primary);">Rp3,75 jt</div>
+                <div class="stat-sub" id="outUnits">5 Probe + 15 Corong</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-num" id="outPayback" style="color:var(--amber);">6,3 bln</div>
+                <div class="stat-sub">Estimasi balik modal</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 10: 3 ASPEK KETERUKURAN & ACTION -->
+      <section class="slide" data-title="10. PKM-KI Fit">
+        <div class="slide-head">
+          <span class="tag">Siap Koridor PKM-KI 2027</span>
+          <h2>Terukur Objektif di 3 Pilar &amp; Realistis Dikerjakan Sebelum Maret 2027</h2>
+          <p class="lead">Produk fisik 1:1 mudah didemonstrasikan di depan juri PKP2/PIMNAS (selaras 95% finalis PKM-KI 2026).</p>
+        </div>
+
+        <div class="stats-3">
+          <div class="stat-card">
+            <span class="tag">1. Aspek Realitas</span>
+            <h3 style="margin-top:0.55rem;">Uji 10–15 Gerobak Surabaya</h3>
+            <p class="stat-sub" style="margin-top:0.35rem;">Ukur liter jelantah terselamatkan, penurunan pemakaian TPM &gt;24%, &amp; skor <strong>UEQ-S</strong> (target <em>Good/Excellent</em>).</p>
+          </div>
+          <div class="stat-card">
+            <span class="tag tag-amber">2. Aspek Teknis</span>
+            <h3 style="margin-top:0.55rem;">Kalibrasi vs Testo 270</h3>
+            <p class="stat-sub" style="margin-top:0.35rem;">Galat <strong>≤ ±2% TPM</strong> (R² ≥ 0,92), waktu ukur &lt;10 dtk, guard suhu 40–80°C, efisiensi saring ≥90% (MIU &lt;2%).</p>
+          </div>
+          <div class="stat-card">
+            <span class="tag tag-neutral">3. Aspek Teori</span>
+            <h3 style="margin-top:0.55rem;">Standar Pangan &amp; ISCC</h3>
+            <p class="stat-sub" style="margin-top:0.35rem;">Ambang TPM 24%, <strong>SNI 7709:2019</strong>, dielektrik–ATC, <strong>ISCC</strong> (<em>Point of Origin / Anti-Fraud</em>), &amp; UU PDP.</p>
+          </div>
+        </div>
+
+        <div class="detail-card">
+          <h3>Langkah Kunci Jika Tim Sepakat Memilih Ide Ini:</h3>
+          <p><strong>1)</strong> Konfirmasi izin ganti topik ke Bu Arni · <strong>2)</strong> Ajak 1 anggota/konsultasi Teknik Elektro atau Teknologi Pangan untuk kalibrasi <code>Testo 270</code> / titrasi FFA · <strong>3)</strong> Rakit prototipe minggu pertama pakai <code>TLC555</code> lokal + kunci 1 sentra <em>deep-fry</em> &amp; pengepul Surabaya.</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="bottombar">
+      <button type="button" id="prevBtn" class="btn">← Sebelumnya</button>
+      <div class="kbd-hint">
+        <span id="slideNumLabel" style="font-weight:800;color:var(--text-primary);margin-right:0.5rem;">Slide 1 / 10</span>
+        Gunakan <kbd>←</kbd> <kbd>→</kbd> untuk berpindah slide
+      </div>
+      <button type="button" id="nextBtn" class="btn btn-solid">Berikutnya →</button>
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      const $ = (id) => document.getElementById(id);
+
+      // 1. Dark Mode Toggle
+      const colorMeta = document.querySelector('meta[name="color-scheme"]');
+      const THEME_KEY = 'jelantah-deck-scheme';
+      const sysScheme = () => window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      const applyTheme = (v) => { colorMeta.content = (v === 'light' || v === 'dark') ? v : 'light dark'; };
+
+      $('themeToggle').addEventListener('click', () => {
+        let cur = null;
+        try { cur = localStorage.getItem(THEME_KEY); } catch (e) {}
+        const sys = sysScheme();
+        const rendered = (cur === 'light' || cur === 'dark') ? cur : sys;
+        const next = rendered === 'dark' ? 'light' : 'dark';
+        if (next === sys) {
+          try { localStorage.removeItem(THEME_KEY); } catch (e) {}
+          applyTheme(null);
+        } else {
+          try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+          applyTheme(next);
+        }
+      });
+
+      window.addEventListener('storage', (e) => {
+        if (e.key === THEME_KEY) applyTheme(e.newValue);
+      });
+
+      // Fullscreen toggle
+      $('fsBtn').addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen?.().catch(() => {});
+        } else {
+          document.exitFullscreen?.().catch(() => {});
+        }
+      });
+
+      // 2. Slide Deck Navigation
+      const slides = [...document.querySelectorAll('.slide')];
+      const dotsWrap = $('slideDots');
+      let currentSlide = 0;
+
+      dotsWrap.innerHTML = slides.map((s, idx) =>
+        `<button type="button" class="dot-btn" data-slide="${idx}" aria-current="${idx === 0 ? 'step' : 'false'}">${s.dataset.title}</button>`
+      ).join('');
+
+      const dotBtns = [...dotsWrap.querySelectorAll('.dot-btn')];
+
+      function goToSlide(idx) {
+        currentSlide = (idx + slides.length) % slides.length;
+        slides.forEach((s, i) => s.classList.toggle('is-active', i === currentSlide));
+        dotBtns.forEach((b, i) => b.setAttribute('aria-current', i === currentSlide ? 'step' : 'false'));
+        $('progressFill').style.width = `${((currentSlide + 1) / slides.length) * 100}%`;
+        $('slideNumLabel').textContent = `Slide ${currentSlide + 1} / ${slides.length}`;
+        dotBtns[currentSlide].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
+
+      dotBtns.forEach((b, i) => b.addEventListener('click', () => goToSlide(i)));
+      $('prevBtn').addEventListener('click', () => goToSlide(currentSlide - 1));
+      $('nextBtn').addEventListener('click', () => goToSlide(currentSlide + 1));
+
+      document.addEventListener('keydown', (e) => {
+        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+        if (e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); goToSlide(currentSlide + 1); }
+        if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); goToSlide(currentSlide - 1); }
+      });
+
+      // 3. Probe 3D Hotspots (Slide 3)
+      const PROBE_PARTS = {
+        tip: { num: 1, title: 'Kepala Sensor Hibrida (IDE + Suhu + Optik)', cost: '±Rp208rb', desc: 'Elektroda kapasitif emas berlapis PTFE membaca konstanta dielektrik senyawa polar (%TPM), didampingi DS18B20 (ATC 40–80°C) & optik TSL2561 agar tidak tertipu minyak gelap berbumbu.' },
+        shaft: { num: 2, title: 'Batang Stainless 304 + Garis MIN–MAX', cost: '±Rp50rb', desc: 'Pipa food-grade 11 cm dengan tanda celup laser MIN–MAX supaya volume pengukuran konsisten dan kabel sensor terlindung active shielding.' },
+        baffle: { num: 3, title: 'Cincin Pelindung Panas Silikon', cost: '±Rp15rb', desc: 'Menahan uap dan cipratan minyak hangat agar tangan pedagang aman dan gagang elektronik awet.' },
+        oled: { num: 4, title: 'Layar OLED 0,96" + LED 3-Warna + 1 Tombol', cost: '±Rp45rb', desc: 'UX satu tombol super simpel: hasil %TPM dan lampu Hijau/Kuning/Merah terbaca instan dalam <10 detik.' },
+        mcu: { num: 5, title: 'ESP32-C3 + FDC1004 + Memori Batch-Sync', cost: '±Rp87rb', desc: 'Menjalankan sensor fusion, guard deteksi air, & simpan 1.000 log offline ber-timestamp (DS3231) lalu sync berkala via Wi-Fi.' },
+        power: { num: 6, title: 'Baterai 18650 (2600mAh) + Port USB-C IP54', cost: '±Rp90rb (+casing)', desc: 'Isi daya pakai kabel charger HP biasa; mode deep-sleep membuat 1 kali cas tahan ±30 hari pemakaian harian.' }
+      };
+
+      const probeChips = $('probeChips');
+      probeChips.innerHTML = Object.entries(PROBE_PARTS).map(([k, p]) =>
+        `<button type="button" class="chip" data-probe-chip="${k}" aria-pressed="${k === 'tip'}">${p.num}. ${p.title.split('(')[0].split('+')[0].trim()}</button>`
+      ).join('');
+
+      function selectProbePart(key) {
+        const p = PROBE_PARTS[key];
+        if (!p) return;
+        document.querySelectorAll('[data-probe]').forEach((el) => el.setAttribute('aria-pressed', String(el.dataset.probe === key)));
+        document.querySelectorAll('[data-probe-chip]').forEach((el) => el.setAttribute('aria-pressed', String(el.dataset.probeChip === key)));
+        $('probeDetail').innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+            <h3>${p.num}. ${p.title}</h3>
+            <span class="tag">${p.cost}</span>
+          </div>
+          <p>${p.desc}</p>
+        `;
+      }
+
+      document.querySelectorAll('[data-probe]').forEach((el) => el.addEventListener('click', () => selectProbePart(el.dataset.probe)));
+      document.querySelectorAll('[data-probe-chip]').forEach((el) => el.addEventListener('click', () => selectProbePart(el.dataset.probeChip)));
+      selectProbePart('tip');
+
+      // 4. Pre-Filter 3D Hotspots (Slide 5)
+      const FILTER_PARTS = {
+        mesh40: { num: 1, title: 'Tahap 1: Keranjang Saringan 40-Mesh (425 µm)', cost: 'Stainless 304', desc: 'Menangkap kerak tepung besar & remahan gorengan saat dituang dari wajan. Tinggal angkat & ketuk untuk membersihkan.' },
+        mesh100: { num: 2, title: 'Tahap 2: Kartrid Halus 100-Mesh (150 µm)', cost: 'Twist-Lock', desc: 'Menyaring sedimen halus secara gravitasi (tanpa listrik/pompa) hingga kadar kotoran MIU turun di bawah 2%.' },
+        collar: { num: 3, title: 'Klip Ulir Pengunci Anti-Tumpah', cost: 'Food-Grade', desc: 'Mengunci corong langsung ke mulut jeriken agar stabil saat penuangan dan bebas bocor di kolong gerobak.' },
+        qrtag: { num: 4, title: 'Jeriken 10L Kolong Gerobak + Tag QR PoO', cost: 'HDPE + QR', desc: 'Dimensi kompak muat di kolong gerobak. Tag QR tahan minyak menghubungkan tiap liter setoran dengan identitas Point of Origin ISCC.' }
+      };
+
+      const filterChips = $('filterChips');
+      filterChips.innerHTML = Object.entries(FILTER_PARTS).map(([k, p]) =>
+        `<button type="button" class="chip" data-filter-chip="${k}" aria-pressed="${k === 'mesh40'}">${p.num}. ${p.title.split(':')[0].trim()}</button>`
+      ).join('');
+
+      function selectFilterPart(key) {
+        const p = FILTER_PARTS[key];
+        if (!p) return;
+        document.querySelectorAll('[data-filter]').forEach((el) => el.setAttribute('aria-pressed', String(el.dataset.filter === key)));
+        document.querySelectorAll('[data-filter-chip]').forEach((el) => el.setAttribute('aria-pressed', String(el.dataset.filterChip === key)));
+        $('filterDetail').innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+            <h3>${p.num}. ${p.title}</h3>
+            <span class="tag tag-amber">${p.cost}</span>
+          </div>
+          <p>${p.desc}</p>
+        `;
+      }
+
+      document.querySelectorAll('[data-filter]').forEach((el) => el.addEventListener('click', () => selectFilterPart(el.dataset.filter)));
+      document.querySelectorAll('[data-filter-chip]').forEach((el) => el.addEventListener('click', () => selectFilterPart(el.dataset.filterChip)));
+      selectFilterPart('mesh40');
+
+      // 4b. Internal Hardware Architecture Explorer (Slide 6)
+      const ARCH_PARTS = {
+        cap: { code: 'A', title: 'Front-End Kapasitif (TLC555 Lokal / FDC1004)', cost: '100% Lokal Rp15rb · Upgrade Rp135rb', desc: 'Elektroda celup (pipa koaksial SS304 atau PCB IDE lokal) terhubung sebagai kapasitor pada IC TLC555 Astable Multivibrator (Jurnal ELKOM 2019). Pergeseran dielektrik minyak mengubah frekuensi pulsa yang dibaca ESP32 via GPIO 4 (PCNT).' },
+        env: { code: 'B', title: 'Sensor Suhu DS18B20 + Optik TSL2561', cost: '±Rp73rb (Tokopedia Sby)', desc: 'DS18B20 (GPIO 5) mengukur suhu minyak 40–80°C untuk kompensasi termal otomatis (ATC), sedangkan modul optik I2C TSL2561 + LED menyumbang koreksi kekeruhan partikel di jendela borosilikat.' },
+        mcu: { code: 'C', title: 'Otak ESP32-C3 + RTC DS3231 + Memori Flash', cost: '±Rp87rb (Tokopedia Sby)', desc: 'ESP32-C3 menjalankan algoritma Sensor Fusion + deteksi tetesan air, mencatat hingga 1.000 log ber-timestamp (RTC DS3231 via I2C GPIO 8/9), lalu otomatis sync via Wi-Fi di Micro-Hub.' },
+        pwr: { code: 'D', title: 'Baterai 18650 + USB-C + Casing 3D PETG', cost: '±Rp120rb (Cetak 3D Sby)', desc: 'Baterai Li-Ion 2600mAh diisi ulang lewat TP4056 USB-C (tahan ±30 hari deep-sleep), terpasang rapi di shell 3D print PETG tahan panas dengan cincin silikon food-grade.' }
+      };
+
+      const archChips = $('archChips');
+      archChips.innerHTML = Object.entries(ARCH_PARTS).map(([k, p]) =>
+        `<button type="button" class="chip" data-arch-chip="${k}" aria-pressed="${k === 'cap'}">${p.code}. ${p.title.split('(')[0].trim()}</button>`
+      ).join('');
+
+      function selectArchPart(key) {
+        const p = ARCH_PARTS[key];
+        if (!p) return;
+        document.querySelectorAll('[data-arch]').forEach((el) => el.setAttribute('aria-pressed', String(el.dataset.arch === key)));
+        document.querySelectorAll('[data-arch-chip]').forEach((el) => el.setAttribute('aria-pressed', String(el.dataset.archChip === key)));
+        $('archDetail').innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+            <h3>${p.code}. ${p.title}</h3>
+            <span class="tag">${p.cost}</span>
+          </div>
+          <p>${p.desc}</p>
+        `;
+      }
+
+      document.querySelectorAll('[data-arch]').forEach((el) => el.addEventListener('click', () => selectArchPart(el.dataset.arch)));
+      document.querySelectorAll('[data-arch-chip]').forEach((el) => el.addEventListener('click', () => selectArchPart(el.dataset.archChip)));
+      selectArchPart('cap');
+
+      // 5. Live TPM Simulator (Slide 4)
+      const slTemp = $('slTemp'), slTpm = $('slTpm'), slDark = $('slDark'), slWater = $('slWater');
+      const PRESETS = {
+        fresh: { temp: 56, tpm: 9, dark: 12, water: 0 },
+        spiced: { temp: 62, tpm: 14, dark: 84, water: 0 },
+        damaged: { temp: 65, tpm: 27, dark: 76, water: 0 },
+        cold: { temp: 27, tpm: 16, dark: 40, water: 0 },
+        water: { temp: 55, tpm: 12, dark: 25, water: 15 }
+      };
+
+      function syncSlider(input) {
+        if (!CSS.supports('accent-color', 'auto')) {
+          const pct = ((Number(input.value) - Number(input.min)) / (Number(input.max) - Number(input.min))) * 100;
+          input.style.setProperty('--progress', `${pct}%`);
+        }
+      }
+
+      function updateSim() {
+        const temp = Number(slTemp.value);
+        const tpm = Number(slTpm.value);
+        const dark = Number(slDark.value);
+        const water = Number(slWater.value) / 10;
+
+        $('valTemp').textContent = `${temp}°C`;
+        $('valTpm').textContent = `${tpm}%`;
+        $('valDark').textContent = `${dark}%`;
+        $('valWater').textContent = `${water.toFixed(1)}%`;
+        $('oledTemp').textContent = `SUHU: ${temp}°C`;
+        [slTemp, slTpm, slDark, slWater].forEach(syncSlider);
+
+        if (dark >= 65) {
+          $('oldVerdict').innerHTML = `<span class="tag tag-red">SALAH VONIS RUSAK</span><div style="margin-top:0.3rem;color:var(--text-secondary);">Tertipu warna gelap bumbu (${dark}%), menyuruh buang minyak padahal masih bagus.</div>`;
+        } else {
+          $('oldVerdict').innerHTML = `<span class="tag">TERBACA LAYAK</span><div style="margin-top:0.3rem;color:var(--text-secondary);">${tpm >= 24 ? '<strong>BAHAYA!</strong> Minyak bening tapi TPM asli sudah ' + tpm + '%!' : 'Kebetulan sesuai karena minyak masih jernih.'}</div>`;
+        }
+
+        const g = $('lampG'), y = $('lampY'), r = $('lampR');
+        [g, y, r].forEach((el) => el.classList.remove('on'));
+
+        if (temp < 40) {
+          $('oledTpm').textContent = 'LO TEMP';
+          $('oledTpm').style.color = '#fbbf24';
+          $('oledStatus').textContent = '▲ SUHU <40°C (MINYAK KENTAL)';
+          $('oledStatus').style.color = '#fbbf24';
+          y.classList.add('on');
+          $('ledText').textContent = 'Kuning — Panaskan Sebentar';
+          $('newVerdict').innerHTML = `<span class="tag tag-amber">GUARD LO TEMP</span><div style="margin-top:0.3rem;color:var(--text-secondary);">Menolak ukur di bawah 40°C agar tidak meleset oleh lemak sawit mengental.</div>`;
+        } else if (temp > 80) {
+          $('oledTpm').textContent = 'HI TEMP';
+          $('oledTpm').style.color = '#f87171';
+          $('oledStatus').textContent = '▲ SUHU >80°C (TERLALU PANAS)';
+          $('oledStatus').style.color = '#f87171';
+          r.classList.add('on');
+          $('ledText').textContent = 'Merah — Tunggu Hangat';
+          $('newVerdict').innerHTML = `<span class="tag tag-red">GUARD HI TEMP</span><div style="margin-top:0.3rem;color:var(--text-secondary);">Menjaga keselamatan pedagang &amp; keawetan sensor probe.</div>`;
+        } else if (water >= 0.5) {
+          $('oledTpm').textContent = 'ERR AIR';
+          $('oledTpm').style.color = '#f87171';
+          $('oledStatus').textContent = '▲ TETESAN AIR TERDETEKSI';
+          $('oledStatus').style.color = '#f87171';
+          r.classList.add('on');
+          $('ledText').textContent = 'Merah — Lap Kering Probe/Wajan';
+          $('newVerdict').innerHTML = `<span class="tag tag-red">FILTER AIR AKTIF</span><div style="margin-top:0.3rem;color:var(--text-secondary);">Lonjakan dielektrik ekstrem dikenali sebagai air, bukan salah vonis TPM.</div>`;
+        } else {
+          const val = Math.min(35, Math.max(4, tpm + (dark - 40) * 0.015));
+          $('oledTpm').textContent = `${val.toFixed(1)}% TPM`;
+          if (val < 18) {
+            $('oledTpm').style.color = '#34d399';
+            $('oledStatus').textContent = '● MINYAK LAYAK PAKAI';
+            $('oledStatus').style.color = '#34d399';
+            g.classList.add('on');
+            $('ledText').textContent = 'LED Hijau — Aman & Hemat Minyak';
+            $('newVerdict').innerHTML = `<span class="tag">AKURAT: LAYAK (${val.toFixed(1)}%)</span><div style="margin-top:0.3rem;color:var(--text-secondary);">Dielektrik tetap sehat walau bumbu gelap → pedagang tidak rugi buang terlalu cepat.</div>`;
+          } else if (val < 24) {
+            $('oledTpm').style.color = '#fbbf24';
+            $('oledStatus').textContent = '● WASPADA (SIAPKAN GANTI)';
+            $('oledStatus').style.color = '#fbbf24';
+            y.classList.add('on');
+            $('ledText').textContent = 'LED Kuning — Mendekati Ambang 24%';
+            $('newVerdict').innerHTML = `<span class="tag tag-amber">AKURAT: WASPADA (${val.toFixed(1)}%)</span><div style="margin-top:0.3rem;color:var(--text-secondary);">Sinyal dini untuk menjadwalkan pengurasan di akhir jualan.</div>`;
+          } else {
+            $('oledTpm').style.color = '#f87171';
+            $('oledStatus').textContent = '● WAJIB GANTI & SETOR!';
+            $('oledStatus').style.color = '#f87171';
+            r.classList.add('on');
+            $('ledText').textContent = 'LED Merah — Tuang ke Pre-Filter';
+            $('newVerdict').innerHTML = `<span class="tag tag-red">AKURAT: RUSAK (${val.toFixed(1)}%)</span><div style="margin-top:0.3rem;color:var(--text-secondary);">Melewati ambang TPM 24% &amp; otomatis tercatat sebagai bukti anti-fraud ISCC.</div>`;
+          }
+        }
+      }
+
+      document.querySelectorAll('[data-preset]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('[data-preset]').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+          const p = PRESETS[btn.dataset.preset];
+          slTemp.value = p.temp;
+          slTpm.value = p.tpm;
+          slDark.value = p.dark;
+          slWater.value = p.water;
+          updateSim();
+        });
+      });
+
+      [slTemp, slTpm, slDark, slWater].forEach((s) => s.addEventListener('input', updateSim));
+      updateSim();
+
+      // 6. Equipment Lending Calculator (Slide 7)
+      const calcStalls = $('calcStalls'), calcLiters = $('calcLiters'), calcMargin = $('calcMargin');
+
+      function updateEcon() {
+        const stalls = Number(calcStalls.value);
+        const liters = Number(calcLiters.value);
+        const margin = Number(calcMargin.value);
+        [calcStalls, calcLiters, calcMargin].forEach(syncSlider);
+
+        $('calcStallsVal').textContent = `${stalls} gerobak`;
+        $('calcLitersVal').textContent = `${liters} liter`;
+        $('calcMarginVal').textContent = `Rp${margin.toLocaleString('id-ID')}/L`;
+
+        const vol = stalls * liters * 4;
+        const cash = liters * 4 * 5500;
+        const probes = Math.ceil(stalls / 3);
+        const capex = probes * 495000 + stalls * 85000;
+        const payback = capex / (vol * margin);
+
+        $('outVolume').textContent = `${vol.toLocaleString('id-ID')} L`;
+        $('outUmkm').textContent = `Rp${Math.round(cash / 1000)}rb`;
+        $('outCapex').textContent = `Rp${(capex / 1000000).toFixed(2).replace('.', ',')} jt`;
+        $('outUnits').textContent = `${probes} Probe + ${stalls} Corong`;
+        $('outPayback').textContent = `${payback.toFixed(1).replace('.', ',')} bln`;
+      }
+
+      [calcStalls, calcLiters, calcMargin].forEach((s) => s.addEventListener('input', updateEcon));
+      updateEcon();
+    })();
+  </script>
+</body>
+</html>
